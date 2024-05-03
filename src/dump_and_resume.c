@@ -544,7 +544,7 @@ int resume_thread_init(struct resume_temp_struct *resume_temp) {
     CHERI_CAP_PRINT(resume_temp->ddc);
     CHERI_CAP_PRINT(resume_temp->ddc2);
 
-    test_resume_jump(resume_temp->pcc, resume_temp->ddc, resume_temp->ddc2, resume_temp->s0, resume_temp->ra, resume_temp->sp);
+    //test_resume_jump(resume_temp->pcc, resume_temp->ddc, resume_temp->ddc2, resume_temp->s0, resume_temp->ra, resume_temp->sp);
 
     printf("resumetest\n");
     //test_resume_jump(void * __capability pcc, void * __capability ddc)
