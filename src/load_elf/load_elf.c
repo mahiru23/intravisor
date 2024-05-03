@@ -155,6 +155,13 @@ void load_elf(char *file_to_map, void *base_addr, encl_map_info * result) {
 //                                                                      break;
 				}
 
+				if(strcmp("signal_handler", &strtab[ts->st_name]) == 0) {
+//                                                              printf("%ld: %ld %ld %ld %ld %lx %ld\n", j,ts->st_name, ts->st_info, ts->st_other, ts->st_shndx, ts->st_value, ts->st_size);
+//                                                                      printf("string = %s, val=%lx\n", &strtab[ts->st_name], ts->st_value);
+					result->signal_handler = ts->st_value;
+//                                                                      break;
+				}
+
 				if(strcmp("cvm_heap_begin", &strtab[ts->st_name]) == 0) {
 //                                                              printf("%ld: %ld %ld %ld %ld %lx %ld\n", j,ts->st_name, ts->st_info, ts->st_other, ts->st_shndx, ts->st_value, ts->st_size);
 //                                                                      printf("string = %s, val=%lx\n", &strtab[ts->st_name], ts->st_value);

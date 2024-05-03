@@ -174,14 +174,14 @@ void *c_thread_body(void *carg) {
 		sp_cap = datacap_create((void *) me->stack, (unsigned long) me->stack + (unsigned long) me->stack_size, me->sbox->clean_room);
 		sp_cap = cheri_setaddress(sp_cap, sp);
 
-//              printf("ca7: SP cap for purecap cVMs\n");
-//              CHERI_CAP_PRINT(sp_cap);
+              printf("ca7: SP cap for purecap cVMs\n");
+              CHERI_CAP_PRINT(sp_cap);
 
 		void *__capability tp_cap = datacap_create((void *) ((unsigned long) me->c_tp), (unsigned long) me->c_tp + 4096, me->sbox->clean_room);
 		tp_cap = cheri_setaddress(tp_cap, me->c_tp);
 
-//              printf("ca8: TP cap for purecap cVMs\n");
-//              CHERI_CAP_PRINT(tp_cap);
+              printf("ca8: TP cap for purecap cVMs\n");
+              CHERI_CAP_PRINT(tp_cap);
 
 		me->c_tp = tp_cap;
 
@@ -194,6 +194,10 @@ void *c_thread_body(void *carg) {
 	unsigned long *tp_args = comp_to_mon(me->c_tp, me->sbox);
 #else
 	unsigned long *tp_args = (__cheri_fromcap unsigned long *) (me->c_tp);
+              printf("ca7: SP cap for purecap cVMs\n");
+              CHERI_CAP_PRINT(sp_cap);
+
+
 #endif
 	tp_args[0] = me->sbox->top - me->sbox->stack_size + 0x1000;
 	tp_args[1] = me->sbox->cid;
@@ -401,11 +405,163 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	__intcap_t ret = 0;
 //      struct lkl_disk *disk;
 
+	/*printf("sp hostcall: %p\n", getSP());
+	printf("ra hostcall: %p\n", getRA());
+	printf("a0: %p\n", (void *)a0);
+	printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));
+	printf("a1: %p\n", (void *)a1);
+	printf("(void *) comp_to_mon(a1, ct->sbox): %p\n", (void *) comp_to_mon(a1, ct->sbox));
+	printf("a2: %p\n", (void *)a2);
+	printf("(void *) comp_to_mon(a2, ct->sbox): %p\n", (void *) comp_to_mon(a2, ct->sbox));
+
+	printf("a3: %p\n", (void *)a3);
+	printf("a4: %p\n", (void *)a4);
+	printf("a5: %p\n", (void *)a5);
+	printf("a6: %p\n", (void *)a6);
+
+	printf("getCT0() hostcall: %p\n", getCT0());
+	printf("getCT1() hostcall: %p\n", getCT1());
+	printf("getCA0() hostcall: %p\n", getCA0());
+	printf("getCA1() hostcall: %p\n", getCA1());
+
+	
+
+	printf("test_resume_jump\n");*/
+
+	
+
+
 	switch (t5) {
 	case 1:
+		//printf("here is 1 hostcall\n");
 		wrap_write(ct->sbox->fd, (void *) comp_to_mon(a0, ct->sbox), a1);
 //                      wrap_write(ct->sbox->fd, a0, a1);
+		//test_resume_jump(a0, a1);
+		//resumetest();
 		break;
+
+	case 30:
+		printf("here is 30 hostcall\n");
+		//printf("here is 30 hostcall2123\n");
+		//wrap_write(ct->sbox->fd, (void *) comp_to_mon(a0, ct->sbox), a1);
+		//lkl_host_ops.timer_free(a0);
+		//test_hostcall();
+		//get_dirty_page();
+		//count_dirty_pages();
+		//check_dirty_pages(ct);
+		//mmaptest(ct);
+
+		//test_get_thread_info(ct);
+
+
+
+		/*void *__capability ccap;
+		ccap = pure_codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->clean_room);
+		ccap = cheri_setaddress(ccap, (unsigned long) (a0));
+
+		ct[0].sbox->box_caps.sealed_datacap = cheri_seal(dcap, ct[0].sbox->box_caps.sealcap);
+
+
+
+
+		signal(SIGALRM, (__cheri_addr ptraddr_t)(ccap));
+		printf("a0: %p\n", (__cheri_addr ptraddr_t)(ccap));
+		printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));*/
+		//sleep(1);
+	int STACK_SIZE1 = SIGSTKSZ;
+    /*void *stack = malloc(STACK_SIZE1);
+    if (stack == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }*/
+
+	void *stack = (void *)(ct->sbox->cmp_begin + 0xe00000);
+
+	printf("a0: %p\n", (void *)a0);
+	printf("stack: %p\n", (void *)stack);
+
+    // 设置信号栈
+    stack_t ss;
+    ss.ss_sp = stack;
+    ss.ss_size = STACK_SIZE1;
+    ss.ss_flags = 0;
+    if (sigaltstack(&ss, NULL) == -1) {
+        perror("sigaltstack");
+        exit(EXIT_FAILURE);
+    }
+
+
+	
+
+    // 注册信号处理函数
+    struct sigaction sa;
+    sa.sa_handler = (void *)a0;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_ONSTACK; // 在信号栈上执行信号处理函数
+    if (sigaction(SIGALRM, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+
+	get_thread_context();
+#ifdef __CHERI_PURE_CAPABILITY__
+printf("__CHERI_PURE_CAPABILITY__\n");
+#else
+printf("no __CHERI_PURE_CAPABILITY__\n");
+#endif
+
+		break;
+
+
+	case 34:
+		printf("here is 34 hostcall\n");
+		//mmaptest(ct);
+		//check_dirty_pages(ct);
+		//exit(-1);
+		
+		
+
+		void *__capability newa0 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
+		void *__capability newa1 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
+		void *__capability newa2 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
+		void *__capability newa3 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
+
+		newa0 = cheri_setaddress(newa0, (unsigned long)a0);
+		newa1 = cheri_setaddress(newa1, (unsigned long)a1);
+		newa2 = cheri_setaddress(newa2, (unsigned long)a2);
+		newa3 = cheri_setaddress(newa3, (unsigned long)comp_to_mon(a3, ct->sbox));
+
+		void *__capability sealed_a0 = cheri_seal(newa0, ct->sbox->box_caps.sealcap);
+		void *__capability sealed_a1 = cheri_seal(newa1, ct->sbox->box_caps.sealcap);
+		void *__capability sealed_a2 = cheri_seal(newa2, ct->sbox->box_caps.sealcap);
+		void *__capability sealed_a3 = cheri_seal(newa3, ct->sbox->box_caps.sealcap);
+
+		CHERI_CAP_PRINT(sealed_a0);
+		CHERI_CAP_PRINT(sealed_a1);
+		CHERI_CAP_PRINT(sealed_a2);
+		CHERI_CAP_PRINT(sealed_a3);
+
+		//cmv_csp(newcsp);
+
+		//mv_sp(a3);
+
+		//cheri_seal(ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap);
+
+		
+//mv_sp((unsigned long)comp_to_mon(a3, ct->sbox));
+//cmv_csp(sealed_a3);
+
+//printf("sp hostcall: %p\n", getSP());
+//printf("csp hostcall: %p\n", getCSP());
+		//test_resume_jump(ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap, ct->sbox->box_caps.dcap, a4, a5, a3);
+//test_resume_jump(newa0, newa1, newa2, a4, a5, a3);
+		//mv_sp(a3);
+
+		//exit(-1);
+		cvm_dumping(ct,ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap, ct->sbox->box_caps.dcap, a4, a5, a3);
+		break;
+
+
 //NB: we don't translate sem/mutex-related addresses because they are not used inside compartments
 #if LKL
 	case 3:
@@ -500,6 +656,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		lkl_host_ops.timer_free(a0);
 		break;
 
+
 /////
 //disk I/O
 /////
@@ -544,6 +701,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	case 29:
 		ret = prepare_parse_run_yaml(ct->sbox, comp_to_mon(a0, ct->sbox), a1);
 		break;
+
 //pure-cap threading, separated from LKL but duplicats some parts 
 	case 40:
 		ret = create_carrie_thread(ct->sbox->threads, a0, (__cheri_tocap void *__capability) (void *) a1);

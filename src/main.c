@@ -22,8 +22,13 @@ struct s_box cvms[MAX_CVMS];
 int timers = 0;
 int debug_calls = 0;
 //
+//int resume_flag = 0;
+
+int resume_flag_x = 0;
 
 pthread_mutex_t print_lock;
+
+void* sig_func_inner;
 
 #define DEBUG 1
 
@@ -208,6 +213,9 @@ void *init_thread(void *arg) {
 
 	struct cinv_s {
 		void *__capability caps[10 * SHIFT];
+		unsigned long s0;
+		unsigned long ra;
+		unsigned long sp;
 	} cinv_args;
 //
 	cinv_args.caps[0 * SHIFT] = sealed_codecap;
@@ -316,13 +324,17 @@ void *init_thread(void *arg) {
 
 	extern void cinv(void *, void *);
 	extern void cinv_sp(void *, void *, unsigned long);
+	//extern void cinv_resume(void *, void *);
+	
 #if DEBUG
 	printf("HW: sp = %p, tp = %p, &cinv_args = %p\n", sp, me->c_tp, (void *) &cinv_args);
 #endif
 #ifndef MODE_PURE
 	unsigned long *tp_args = comp_to_mon(me->c_tp, me->sbox);
+	printf("not def MODE_PURE\n");
 #else
 	unsigned long *tp_args = (__cheri_fromcap unsigned long *) (me->c_tp);
+	printf("def MODE_PURE\n");
 #endif
 	tp_args[0] = me->sbox->top - me->sbox->stack_size + 0x1000;
 	tp_args[1] = me->sbox->cid;
@@ -332,9 +344,106 @@ void *init_thread(void *arg) {
 	printf("-----------------------------------------------\n");
 //printf doesn't work anymore 
 
-	cmv_ctp(me->c_tp);
-	cinv(tp_args[0],	//local_cap_store
-	     (void *) &cinv_args);
+	//pthread_sigmask(SIG_SETMASK, NULL, NULL);
+
+	
+
+	if(resume_flag_x == 0) {
+		printf("resume_flag_x == 0\n");
+		unsigned long v1;
+		unsigned long v2;
+		unsigned long v3;
+		//cvm_resume(me, &v1, &v2, &v3);
+
+		timer_para time_val = {0};
+
+		printf("-----time_val-----\n");
+
+		/*printf("tid: %d\n", me->tid);
+		printf("tid: %d\n", me->tid);*/
+
+		//timer thread
+		/*time_val.interval_time = 10;
+		time_val.func = timer_callback_func;
+		timer_create_test(&time_val);
+		timer_callback_func();
+
+		int xzxz = 0;
+		while(xzxz<20) {
+			xzxz++;
+			sleep(1);
+		}*/
+
+		//signal(SIGALRM, sig_func_inner);
+		print_thread_attr();
+		printf("\n---------------------------------------------\n\n");
+
+		start_timers_context();
+		//ss_just_test();
+
+		/*int xzxz = 0;
+		while(xzxz<20) {
+			xzxz++;
+			sleep(1);
+		}*/
+
+
+		cmv_ctp(me->c_tp);
+		cinv(tp_args[0],	//local_cap_store
+			(void *) &cinv_args);
+	}
+	else {
+		//me->resume_flag = 0;
+		printf("resume_flag_x == 1\n");
+		unsigned long v1;
+		unsigned long v2;
+		unsigned long v3;
+		cvm_resume(me, &v1, &v2, &v3);
+		cinv_args.s0 = v1;
+		cinv_args.ra = v2;
+		cinv_args.sp = v3;
+
+		/*printf("cinv_args.sp = %p\n", cinv_args.sp);
+		printf("cinv_args.ra = %p\n", cinv_args.ra);
+		printf("cinv_args.s0 = %p\n", cinv_args.s0);
+		printf("sizeof = %d\n", sizeof(cinv_args));
+
+		printf("&cinv_args = %p\n", &cinv_args);
+		printf("&cinv_args.caps = %p\n", &cinv_args.caps);
+		printf("&cinv_args.sp = %p\n", &cinv_args.sp);
+		printf("&cinv_args.ra = %p\n", &cinv_args.ra);
+		printf("&cinv_args.s0 = %p\n", &cinv_args.s0);
+
+		printf("me->c_tp = %p\n", me->c_tp);
+
+		CHERI_CAP_PRINT(cinv_args.caps[0]);
+		CHERI_CAP_PRINT(cinv_args.caps[1]);
+		CHERI_CAP_PRINT(cinv_args.caps[2]);
+		CHERI_CAP_PRINT(cinv_args.caps[3]);
+		CHERI_CAP_PRINT(cinv_args.caps[4]);
+		CHERI_CAP_PRINT(cinv_args.caps[5]);
+		CHERI_CAP_PRINT(cinv_args.caps[6]);*/
+
+		/*cinv_resume(tp_args[0],	//local_cap_store
+			(void *) &cinv_args);
+		*/
+		printf("cinv_resume\n");
+		read_memory_from_fd(me, v1, v2, v3);
+
+		//test_resume_jump(me->sbox->box_caps.sealed_ret_from_mon, me->sbox->box_caps.sealed_datacap, me->sbox->box_caps.dcap, v1, v2, v3);
+
+		
+
+
+
+
+		//cmv_ctp(me->c_tp);
+		/*cinv_resume(comp_to_mon(v3, me->sbox),	//local_cap_store
+			(void *) &cinv_args);*/
+		//cvm_resume(me);
+	}
+
+
 
 	printf("something is wrong, die at %d\n", __LINE__);
 	while(1) ;
@@ -391,6 +500,13 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 	else
 		printf("encl_map.ret = %p\n", encl_map.ret_point);
 #endif
+
+	if(encl_map.signal_handler == 0) {
+		printf("signal_handler is 0, runtime image is wrong/corrupted\n");
+		while(1) ;
+	}
+	sig_func_inner = ((void*)(unsigned long)(encl_map.signal_handler) + (unsigned long)(encl_map.base));
+	printf("sig_func_inner: %p\n\n", sig_func_inner);
 
 #ifdef CONFIG_OPENSSL
 	SHA256_Init(&cvms[cid].context);
@@ -630,6 +746,18 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 		printf("ret = %d\n", ret);
 		while(1) ;
 	}
+
+
+	printf("ct[0].stack: %p\n", ct[0].stack);
+	printf("STACK_SIZE: %p\n", STACK_SIZE);
+
+	void* stackAddr;
+    size_t stackSize;
+    pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);
+    printf("\n\n\n\n?????????start Stack2 Address: %p\n", stackAddr);
+    printf("?????????????start Stack2 Size: %p\n\n\n\n", stackSize);
+
+
 #ifdef __linux__
 //      int from = (cid - 2) * 2;
 //      int to  = ((cid - 2) + 1) * 2;
@@ -703,8 +831,14 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 	return 0;
 }
 
-pthread_t run_cvm(int cid) {
+pthread_t run_cvm(int cid, int resume_flag) {
 	struct c_thread *ct = cvms[cid].threads;
+	//ct[0].resume_flag = resume_flag;
+	void* stackAddr;
+    size_t stackSize;
+    pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);
+    printf("\n\n\n\nstart Stack2 Address: %p\n", stackAddr);
+    printf("start Stack2 Size: %p\n\n\n\n", stackSize);
 
 	int ret = pthread_create(&ct[0].tid, &ct[0].tattr, init_thread, &ct[0]);
 	if(ret != 0) {
@@ -712,10 +846,15 @@ pthread_t run_cvm(int cid) {
 		printf("ret = %d\n", ret);
 	}
 
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGALRM);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+
 	return ct[0].tid;
 }
 
-int parse_and_spawn_yaml(char *yaml_cfg, char libvirt) {
+int parse_and_spawn_yaml(char *yaml_cfg, char libvirt, int resume_flag) {
 	struct cmp_s comp;
 	struct parser_state *state = run_yaml_scenario(yaml_cfg);
 	if(state == 0) {
@@ -724,7 +863,7 @@ int parse_and_spawn_yaml(char *yaml_cfg, char libvirt) {
 	}
 
 	for(struct capfile * f = state->clist; f; f = f->next) {
-//                      printf("capfile: name=%s, data='%s', size=0x%lx, addr=0x%lx \n", f->name, f->data, f->size, f->addr);
+                      printf("capfile: name=%s, data='%s', size=0x%lx, addr=0x%lx \n", f->name, f->data, f->size, f->addr);
 		if(f->addr) {
 			printf("capfiles with pre-defined addresses are not supported\n");
 		}
@@ -817,7 +956,7 @@ int parse_and_spawn_yaml(char *yaml_cfg, char libvirt) {
 	void *cret;
 	pthread_t tid;
 	for(struct cvm * f = state->flist; f; f = f->next) {
-		tid = run_cvm(f->isol.base / CVM_MAX_SIZE);
+		tid = run_cvm(f->isol.base / CVM_MAX_SIZE, resume_flag);
 
 		if(f->wait == -1) {
 			pthread_join(tid, &cret);
@@ -867,13 +1006,14 @@ int prepare_parse_run_yaml(struct s_box *sbox, void *loc, int size) {
 	fwrite(loc, 1, size, file);
 	fclose(file);
 
-	return parse_and_spawn_yaml(filename, 1);
+	return parse_and_spawn_yaml(filename, 1, 0);
 }
 
 queue q, ready;
 int once = 1;			//SCO
 
 struct timeval start, end;
+
 
 int main(int argc, char *argv[]) {
 //      printf("hello world %d %s\n", argc, argv[1]);
@@ -887,6 +1027,8 @@ int main(int argc, char *argv[]) {
 	char *disk_img = "./disk.img";
 	char *yaml_cfg = 0;
 	char *runtime_so = "libcarrie.so";
+	char *dump_file = "";
+	int dump_flags = 0;
 
 	char **argv_orig = argv;
 	int argc_orig = argc;
@@ -901,6 +1043,7 @@ int main(int argc, char *argv[]) {
 			printf("\t-y --yaml\tpath to yaml config. Default is %s. Only this argument works!\n", yaml_cfg);
 			printf("\t-c --debug_calls\t trace hostcalls at the host side, default is %d\n", debug_calls);
 			printf("\t-t --timer\tenable oneshot timer threads, default: %d\n", timers);
+			printf("\t--resume \tresume the cVM from dump file");
 			exit(0);
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
@@ -915,6 +1058,11 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("-c", *argv) == 0 || strcmp("--debug_calls", *argv) == 0) {
 			skip_argc += 2;
 			debug_calls = atoi(*++argv);
+		} else if(strcmp("--resume", *argv) == 0) {
+			skip_argc += 2;
+			dump_file = *++argv;
+			dump_flags = 1;
+			break;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {
 
 			break;	//argv now points to the beginning of args
@@ -962,8 +1110,21 @@ int main(int argc, char *argv[]) {
 	extern host_syscall_handler_adv(char *, void *__capability pcc, void *__capability ddc, void *__capability pcc2);
 	host_syscall_handler_adv("monitor", sealed_pcc, sealed_ddc, sealed_pcc2);
 
+	
+	if(dump_flags == 1) {
+		//reload_dump_file(dump_file);
+		printf("cvm_resume();\n");
+		resume_flag_x = 1;
+		//resume_flag_x
+		//cvm_resume();
+		yaml_cfg = "native-hello.yaml";
+		parse_and_spawn_yaml(yaml_cfg, 0, 1);
+		
+		return 0;
+	}
+
 	if(yaml_cfg) {
-		parse_and_spawn_yaml(yaml_cfg, 0);
+		parse_and_spawn_yaml(yaml_cfg, 0, 0);
 	} else {
 #if LIBVIRT
 		extern int libvirt_main(int argc, char *argv[]);

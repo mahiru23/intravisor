@@ -81,6 +81,39 @@ cinv:
 		CInvoke ca0, ca1
 #endif
 
+
+
+
+
+.global cinv_resume
+.type cinv_resume,%function
+cinv_resume:
+	mv	t0, a0
+	lc	ca2, (16*2)(a1)
+	sc	ca2, COMP_DDC(t0)	//compartment ddc
+
+	lc	ca3, (16*3)(a1)
+	sc	ca3, HC_PCC(t0)	//hostcalls code
+
+	lc	ca4, (16*4)(a1)
+	sc	ca4, MON_DDC(t0)	//sealed mon ddc
+
+	lc	ca5, (16*5)(a1)
+	sc	ca5, RET_CINV2_PPC(t0)	//ret into mon as OCALL
+
+	lc	ca6, (16*6)(a1)
+	sc	ca6, RET_COMP_PPC(t0)	//ret from mon sealed PPC
+
+	lc	ca0, (16*1)(a1)
+	sc	ca0, RET_COMP_DDC(t0)	//sealed data cap for ret from mon, the same as ca1
+
+	ret
+
+
+
+
+
+
 .global cinv2_sp
 .type cinv2_sp,%function
 cinv2_sp:
@@ -185,6 +218,9 @@ hostcall_asm:
 		sd	s0, 0(sp)
 		sd	ra, 16(sp)
 		addi	s0,sp, 112
+
+
+
 #ifndef SIM
 		sc	ct0, -16(s0)	//ret_from_mon pcc
 		sc	ct1, -32(s0)	//reg_from_mod ignore
@@ -255,3 +291,26 @@ st_cap:
 #endif
 	  ret
 
+
+
+.global resumetest
+.type resumetest,%function
+resumetest:
+
+#ifndef SIM
+
+
+		CInvoke ct0, ct1
+#else
+		jr t0
+#endif
+
+print_reg_value:
+    li a7, 64       # syscall number for write
+    li a0, 1        # file descriptor 1 (stdout)
+    li a2, 8        # buffer length
+    li a6, 0        # flags (unused)
+
+    ecall
+
+    ret

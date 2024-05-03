@@ -1,6 +1,7 @@
 #include "hostcalls.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <dlmalloc_nonreuse.h>
 
 //local store for capabilitites, relative address usualy provided via AUX
 char local_cap_store[0xabba];
@@ -29,6 +30,11 @@ long syscall(void *a0, void *a1, void *a2, long a3, long a4, long a5, long a6, l
 	return ret;
 }
 
+void signal_handler()
+{
+	printf("signal handler in cvm\n");
+}
+
 void outer_c() {
 	host_write_out(MSG, sizeof(MSG));
 
@@ -36,6 +42,10 @@ void outer_c() {
 
 	printf("--------- LibOS is ok,  ------- \n");
 	printf("\n");
+
+	void * stack_ptr_temp = dlmalloc(16384);
+
+	c_out_3(30, (long) signal_handler, stack_ptr_temp, 0);
 
 	extern int app_main();
 	int ret = app_main();

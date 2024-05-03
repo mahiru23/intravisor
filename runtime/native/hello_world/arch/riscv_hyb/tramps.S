@@ -89,6 +89,19 @@ tt:
 		lc	ct0, RET_COMP_PPC(t0)
 
 		cmove	ct2, cs2
+
+
+
+		cmove	ca0,	ct0
+		cmove	ca1,	ct1
+		cmove	ca2,	ct2
+		cmove	ca3,	csp
+		cmove	ca4,	cs0
+		cmove	ca5,	cra
+
+
+		
+
 		CInvoke cs3, cs4
 #endif
 

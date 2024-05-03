@@ -36,6 +36,7 @@
 #include <net/if.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/time.h>
 
 #ifdef __linux__
 #include <linux/if.h>
@@ -182,6 +183,8 @@ struct c_thread {
 
 	struct stream_caps_store *cs;
 
+	//int resume_flag;
+
 };
 
 struct cs_lock {
@@ -290,6 +293,7 @@ extern struct lkl_dev_net_ops fd_net_ops;
 extern int timers;
 extern int debug_calls;
 //
+
 
 void *my_memcpy(void *dest, void *src, size_t n);
 #ifndef SIM
@@ -449,7 +453,29 @@ static __inline__ node *pop_back(queue * q) {
 long get_file_size(char *path);
 long copy_file_into_cvm(char *path, long *where, long size);
 
-int parse_and_spawn_yaml(char *yaml_cfg, char libvirt);
+int parse_and_spawn_yaml(char *yaml_cfg, char libvirt, int resume_flag);
 void __capability *mmap_cvm_code(unsigned long, size_t len, int prot, int flags, int fd, off_t offset);
 void __capability *mmap_cvm_data(unsigned long, size_t len, int prot, int flags, int fd, off_t offset);
 int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, void *(*start_routine)(void *), void *arg);
+
+
+// timer
+// copy from ..., just test here
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef unsigned long u64;
+
+typedef void (*timer_callback)();
+
+typedef struct
+{
+	u32 interval_time;
+	timer_callback func; 
+}timer_para;
+
+void timer_callback_func();
+int timer_create_test(timer_para *time_val);
+int start_timers_context();
+void print_thread_attr();
+int ss_just_test();

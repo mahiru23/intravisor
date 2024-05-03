@@ -2,11 +2,19 @@
 unsigned long local_cap_store = 0x3e001000;
 
 int host_write_out(char __capability * ptr, int size) {
-	return (int) c_out_3(1, ptr, (long) size, 0);
+	return (int) c_out_3(1, ptr, (long) size, 3);
 }
 
 void host_exit() {
-	c_out_3(13, 0, 0, 0);
+	c_out_3(13, 0, 0, 5);
+}
+
+void get_test() {
+	c_out_3(30, 0, 0, 0,0,0,0,10);
+}
+
+void host_save() {
+	c_out_7(34, 0, 0, 0,0,0,0,10);
 }
 
 int host_cap_prb(char *key, void *location, long *size) {
