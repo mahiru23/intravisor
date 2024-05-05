@@ -330,6 +330,8 @@ int cvm_dumping(struct c_thread *ct, void * __capability pcc, void * __capabilit
             printf("save as binary file end\n");
     #endif
 
+    save_capfiles();
+
     /*destory the resource(if necessary?)*/
     /*important to avoid memory leak*/
     exit(-1);
@@ -430,96 +432,6 @@ void read_memory_from_fd(struct c_thread *ct, unsigned long v1, unsigned long v2
     printf("sp+48: %p\n", addr[48]);
     printf("sp+64: %p\n", addr[64]);
 
-    /*printf("remain len: %p\n", remaining_file_size(fd));
-    printf("offset: %p\n", offset);
-    printf("len: %p\n", len);
-    int pages = (len) / PAGE_SIZE;
-
-    off_t map_offset = lseek(fd, 0, SEEK_CUR);
-
-    printf("map_offset: %p\n", map_offset);
-
-    unsigned long newsp = 0x3fffbf30;*/
-
-    /*char* newaddr = (char*)malloc(len);
-    size_t bytes_read = read(fd, newaddr, len);
-    if (bytes_read != len) {
-        perror("read");
-        exit(EXIT_FAILURE);
-    }*/
-
-    /*char *addr = mmap((void *)offset, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
-    if (addr == MAP_FAILED) {
-        printf("???????????????\n");
-        close(fd);
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }*/
-
-    /*size_t bytes_read = read(fd, offset, len);
-    if (bytes_read != len) {
-        perror("read");
-        exit(EXIT_FAILURE);
-    }*/
-
-    /*addr = mmap((void *)offset, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, map_offset);
-    if (addr == MAP_FAILED) {
-        printf("???????????????\n");
-        close(fd);
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }*/
-
-    /*printf("sp: %p\n", offset[newsp]);
-    printf("sp+16: %p\n", offset[newsp+16]);
-    printf("sp+32: %p\n", offset[newsp+32]);
-    printf("sp+48: %p\n", offset[newsp+48]);
-    printf("sp+64: %p\n", offset[newsp+64]);*/
-
-    /*printf("addr sp: %p\n", addr[newsp]);
-    printf("sp+16: %p\n", addr[newsp+16]);
-    printf("sp+32: %p\n", addr[newsp+32]);
-    printf("sp+48: %p\n", addr[newsp+48]);
-    printf("sp+64: %p\n", addr[newsp+64]);*/
-
-    // 告诉系统尽快加载内存
-    /*if (madvise(addr, len, MADV_WILLNEED) == -1) {
-        perror("madvise");
-        exit(EXIT_FAILURE);
-    }
-
-    char *c;
-    for (int i = 0; i < pages; ++i) {
-        c = addr[i * PAGE_SIZE];
-    }*/
-
-
-
-    /*get_dirty_page_num(len, pages, addr);
-    if (msync(addr, len, MS_SYNC) == -1) {
-        perror("msync");
-        exit(EXIT_FAILURE);
-    }
-    get_dirty_page_num(len, pages, addr);*/
-
-    /*char *base = (char *)mmap(offset, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, map_offset);
-    if (base == MAP_FAILED) {
-        perror("Failed to mmap memory");
-        exit(EXIT_FAILURE);
-    }*/
-
-
-    /*size_t bytes_read = read(fd, base, len);
-    if (bytes_read != len) {
-        perror("read");
-        exit(EXIT_FAILURE);
-    }*/
-
-    // close
-    /*if (munmap(base, len) == -1) {
-        perror("munmap");
-        exit(EXIT_FAILURE);
-    }*/
 }
 
 
@@ -532,35 +444,77 @@ struct resume_temp_struct {
     unsigned long sp;
 };
 
-int resume_thread_init(struct resume_temp_struct *resume_temp) {
-    printf("sp resume_thread_init: %p\n", getSP());
-    printf("resume_thread_init\n");
-    /*if(setcontext(new_context) == -1) {
-        perror("setcontext");
-        printf("setcontext fail");
+
+/*with define calculate the length and resume size*/
+/*index/encode if necessary*/
+void save_capfiles() {
+    pthread_mutex_lock(&cf_store_lock);
+    int fd = open("capfiles_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (fd == -1) {
+        perror("open");
         exit(EXIT_FAILURE);
-    }*/
-    CHERI_CAP_PRINT(resume_temp->pcc);
-    CHERI_CAP_PRINT(resume_temp->ddc);
-    CHERI_CAP_PRINT(resume_temp->ddc2);
+    }
 
-    //test_resume_jump(resume_temp->pcc, resume_temp->ddc, resume_temp->ddc2, resume_temp->s0, resume_temp->ra, resume_temp->sp);
+    /*step1: save global data structure*/
+    if (write(fd, cap_files, MAX_CF_FILES * sizeof(struct cap_files_store_s)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
 
-    printf("resumetest\n");
-    //test_resume_jump(void * __capability pcc, void * __capability ddc)
+    /*step2: save data segment with memcpy()*/
+	for(int i = 0; i < MAX_CF_FILES; i++) {
+		if(cap_files[i].ptr == 0)
+			continue;
+        
+        if (write(fd, cap_files[i].ptr, cap_files[i].size) == -1) {
+            perror("write");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+	}
+    close(fd);
+    pthread_mutex_unlock(&cf_store_lock);
+    #if DEBUG
+            printf("save_capfiles end\n");
+    #endif
+}
 
-    //extern void resumetest();
-    //resumetest();
 
-	return 0;
+void resume_capfiles() {
+
+    pthread_mutex_lock(&cf_store_lock);
+    int fd = open("capfiles_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    /*step1: resume global data structure*/
+    read_context_from_fd(fd, cap_files, MAX_CF_FILES * sizeof(struct cap_files_store_s));
+
+    /*step2: resume data segment with malloc(update ptr)*/
+	for(int i = 0; i < MAX_CF_FILES; i++) {
+		if(cap_files[i].ptr == 0)
+			continue;
+
+        void *new_ptr = malloc(cap_files[i].size);
+        read_context_from_fd(fd, new_ptr, cap_files[i].size);
+        cap_files[i].ptr = new_ptr;
+        host_reg_cap(cap_files[i].ptr, cap_files[i].size, cap_files[i].loc);
+	}
+    close(fd); 
+    pthread_mutex_unlock(&cf_store_lock);
 }
 
 
 int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsigned long *v3) {
     int fd;
-   #if DEBUG
-            printf("enter\n");
+
+    #if DEBUG
+            printf("start cvm_resume\n");
     #endif
+
     // create mapped file
     fd = open("context_dump.bin", O_RDWR);
     if (fd == -1) {
@@ -627,6 +581,8 @@ int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsign
             printf("global flag\n");
     #endif
 
+    resume_capfiles();
+
 
     /*read_context_from_fd(fd, &cvms, sizeof(struct s_box) * MAX_CVMS);
     read_context_from_fd(fd, &timers, sizeof(timers));
@@ -676,30 +632,6 @@ int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsign
     pthread_t temp_tid;
     void *cret;
 
-    /*char* offset = cvms[cid].base;
-    unsigned long newsp = 0x3fffbf30;
-    printf("sp: %p\n", offset[newsp]);
-    printf("sp+16: %p\n", offset[newsp+16]);
-    printf("sp+32: %p\n", offset[newsp+32]);
-    printf("sp+48: %p\n", offset[newsp+48]);
-    printf("sp+64: %p\n", offset[newsp+64]);
-
-    printf("sp resume: %p\n", getSP());*/
-
-    //pthread_create(&temp_tid, NULL, resume_thread_init, &new_context);
-    /*pthread_create(&temp_tid, NULL, resume_thread_init, &resume_temp);
-
-    
-
-    #if DEBUG
-            printf("pthread_join flag\n");
-    #endif
-
-    while(1) {
-        sleep(1);
-    }
-
-    pthread_join(tid, &cret);*/
 
     return 0;
 

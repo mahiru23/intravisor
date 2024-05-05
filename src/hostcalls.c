@@ -468,24 +468,30 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		printf("a0: %p\n", (__cheri_addr ptraddr_t)(ccap));
 		printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));*/
 		//sleep(1);
-	int STACK_SIZE1 = SIGSTKSZ;
+	int STACK_SIZE1 = MAX(getpagesize(), SIGSTKSZ);
     /*void *stack = malloc(STACK_SIZE1);
     if (stack == NULL) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }*/
 
-	void *stack = (void *)(ct->sbox->cmp_begin + 0xe00000);
+	//void *stack = (void *)(ct->sbox->cmp_begin + 0xe00000);
 
 	printf("a0: %p\n", (void *)a0);
 	printf("stack: %p\n", (void *)stack);
 
     // 设置信号栈
     stack_t ss;
-    ss.ss_sp = stack;
-    ss.ss_size = STACK_SIZE1;
+    //ss.ss_sp = stack;
+	ss.ss_size = STACK_SIZE1;
+	ss.ss_sp = mmap(NULL, ss.ss_size, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0);
+	if (ss.ss_sp == MAP_FAILED) {
+        perror("MAP_FAILED");
+        exit(EXIT_FAILURE);
+    }
+    
     ss.ss_flags = 0;
-    if (sigaltstack(&ss, NULL) == -1) {
+    if (sigaltstack(&ss, NULL) < 0) {
         perror("sigaltstack");
         exit(EXIT_FAILURE);
     }

@@ -501,12 +501,14 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 		printf("encl_map.ret = %p\n", encl_map.ret_point);
 #endif
 
+#if 0
 	if(encl_map.signal_handler == 0) {
 		printf("signal_handler is 0, runtime image is wrong/corrupted\n");
 		while(1) ;
 	}
 	sig_func_inner = ((void*)(unsigned long)(encl_map.signal_handler) + (unsigned long)(encl_map.base));
 	printf("sig_func_inner: %p\n\n", sig_func_inner);
+#endif
 
 #ifdef CONFIG_OPENSSL
 	SHA256_Init(&cvms[cid].context);
