@@ -37,32 +37,32 @@ cinv:
 #else
 
 		mv	t0, a0
-		lc	ca2, (16*2)(a1)
-		sc	ca2, COMP_DDC(t0)	//compartment ddc
+		clc	ca2, (16*2)(ca1)
+		csc	ca2, COMP_DDC(ct0)	//compartment ddc
 
-		lc	ca3, (16*3)(a1)
-		sc	ca3, HC_PCC(t0)	//hostcalls code
+		clc	ca3, (16*3)(ca1)
+		csc	ca3, HC_PCC(ct0)	//hostcalls code
 
-		lc	ca4, (16*4)(a1)
-		sc	ca4, MON_DDC(t0)	//sealed mon ddc
+		clc	ca4, (16*4)(ca1)
+		csc	ca4, MON_DDC(ct0)	//sealed mon ddc
 
-		lc	ca5, (16*5)(a1)
-		sc	ca5, RET_CINV2_PPC(t0)	//ret into mon as OCALL
+		clc	ca5, (16*5)(ca1)
+		csc	ca5, RET_CINV2_PPC(ct0)	//ret into mon as OCALL
 
-		lc	ca6, (16*6)(a1)
-		sc	ca6, RET_COMP_PPC(t0)	//ret from mon sealed PPC
+		clc	ca6, (16*6)(ca1)
+		csc	ca6, RET_COMP_PPC(ct0)	//ret from mon sealed PPC
 
-		lc	ca0, (16*1)(a1)
-		sc	ca0, RET_COMP_DDC(t0)	//sealed data cap for ret from mon, the same as ca1
+		clc	ca0, (16*1)(ca1)
+		csc	ca0, RET_COMP_DDC(ct0)	//sealed data cap for ret from mon, the same as ca1
 
-		lc	ca0, (16*7)(a1)
+		clc	ca0, (16*7)(ca1)
 
 		cgettag		s4, ca0
 		bnez     s4, .cinv_run_as_pure
         j       .cinv_next
 
 .cinv_run_as_pure:
-		lc	ca6, (16*8)(a1)
+		clc	ca6, (16*8)(ca1)
 		cmove	ctp, ca6
 		cmove	csp, ca0
 .cinv_next:
@@ -71,9 +71,9 @@ cinv:
 //we need something better
 		cmove	cra, ca0
 
-		lc	ca0, (16*0)(a1)
-		lc	ca2, (16*2)(a1)
-		lc	ca1, (16*1)(a1)
+		clc	ca0, (16*0)(ca1)
+		clc	ca2, (16*2)(ca1)
+		clc	ca1, (16*1)(ca1)
 
 		cspecialw	ddc, ca2
 		CInvoke ca0, ca1
@@ -133,19 +133,19 @@ ret_from_cinv2:
 
 		cspecialw	ddc, ct6 //dcc-pcc should be the same 
 
-		ld	ra,  (8*1)(sp)
-		ld	s0,  (8*2)(sp)
-		ld	s1,  (8*3)(sp)
-		ld	s2,  (8*4)(sp)
-		ld	s3,  (8*5)(sp)
-		ld	s4,  (8*6)(sp)
-		ld	s5,  (8*7)(sp)
-		ld	s6,  (8*8)(sp)
-		ld	s7,  (8*9)(sp)
+		cld	ra,  (8*1)(csp)
+		cld	s0,  (8*2)(csp)
+		cld	s1,  (8*3)(csp)
+		cld	s2,  (8*4)(csp)
+		cld	s3,  (8*5)(csp)
+		cld	s4,  (8*6)(csp)
+		cld	s5,  (8*7)(csp)
+		cld	s6,  (8*8)(csp)
+		cld	s7,  (8*9)(csp)
 
 		addi	sp, sp, 112
 
-		ret
+		cret
 
 #else
 		jr	a1
@@ -172,7 +172,7 @@ hostcall_asm:
 
 .run_as_pure:
 		cspecialw	ddc, ct6 //dcc-pcc should be the same 
-		sc	csp, -64(sp)	// lets save cap 
+		csc	csp, -64(csp)	// lets save cap 
 .next:
 
 
@@ -180,33 +180,33 @@ hostcall_asm:
 #endif
 
 		addi	sp, sp, -112
-		sd	s0, 0(sp)
-		sd	ra, 16(sp)
+		csd	s0, 0(csp)
+		csd	ra, 16(csp)
 		addi	s0,sp, 112
 #ifndef SIM
-		sc	ct0, -16(s0)	//ret_from_mon pcc
-		sc	ct1, -32(s0)	//reg_from_mod ignore
-		sc	ct2, -48(s0)	//comp ddc unsealed
+		csc	ct0, -16(cs0)	//ret_from_mon pcc
+		csc	ct1, -32(cs0)	//reg_from_mod ignore
+		csc	ct2, -48(cs0)	//comp ddc unsealed
 #else
-		sd	t0, -16(s0)
-		sd	t1, -32(s0)
-		sd	t2, -48(s0)
+		sd	t0, -16(cs0)
+		sd	t1, -32(cs0)
+		sd	t2, -48(cs0)
 #endif
 
-		jal hostcall
+		cjal hostcall
 
 #ifndef SIM
-		lc	ct0, -16(s0)	//ret_from_mon pcc
-		lc	ct1, -32(s0)	//ret_from_mon ignore
-		lc	ct2, -48(s0)	//comp ddc unsealed
+		clc	ct0, -16(cs0)	//ret_from_mon pcc
+		clc	ct1, -32(cs0)	//ret_from_mon ignore
+		clc	ct2, -48(cs0)	//comp ddc unsealed
 #else
 		ld	t0, -16(s0)
 		ld	t1, -32(s0)
 		ld	t2, -48(s0)
 #endif
 
-		ld	s0, 0(sp)
-		ld	ra, 16(sp)
+		cld	s0, 0(csp)
+		cld	ra, 16(csp)
 
 		addi	sp, sp, 112
 #ifndef SIM
@@ -227,7 +227,7 @@ hostcall_asm:
 		j	.ret_next
 
 .ret_as_pure:
-		lc	csp, -64(sp)
+		clc	csp, -64(csp)
 .ret_next:
 
 		cspecialw	ddc, ct2
@@ -241,9 +241,9 @@ hostcall_asm:
 .type st_cap,%function
 st_cap:
 #ifndef SIM
-	  sc ca1, 0(a0)
+	  csc ca1, 0(ca0)
 #else
 	  sd a1, 0(a0)
 #endif
-	  ret
+	  cret
 

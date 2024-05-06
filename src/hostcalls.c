@@ -468,27 +468,31 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		printf("a0: %p\n", (__cheri_addr ptraddr_t)(ccap));
 		printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));*/
 		//sleep(1);
-	int STACK_SIZE1 = MAX(getpagesize(), SIGSTKSZ);
+	int STACK_SIZE1 = SIGSTKSZ;
     /*void *stack = malloc(STACK_SIZE1);
     if (stack == NULL) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }*/
 
-	//void *stack = (void *)(ct->sbox->cmp_begin + 0xe00000);
+	//void *stack = (void *)(0xe00000);
+	
 
 	printf("a0: %p\n", (void *)a0);
-	printf("stack: %p\n", (void *)stack);
+	//printf("stack: %p\n", (void *)stack);
 
     // 设置信号栈
     stack_t ss;
     //ss.ss_sp = stack;
 	ss.ss_size = STACK_SIZE1;
+	//ss.ss_sp = stack;
+	//ss.ss_sp = mmap(stack, ss.ss_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_FIXED, -1, 0);
 	ss.ss_sp = mmap(NULL, ss.ss_size, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0);
 	if (ss.ss_sp == MAP_FAILED) {
         perror("MAP_FAILED");
         exit(EXIT_FAILURE);
     }
+	printf("ss.ss_sp: %p\n", (void *)ss.ss_sp);
     
     ss.ss_flags = 0;
     if (sigaltstack(&ss, NULL) < 0) {
@@ -510,6 +514,18 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
     }
 
 	get_thread_context();
+
+	// 设置定时器
+    struct itimerval timer;
+    timer.it_interval.tv_sec = 2;  // 1 秒间隔
+    timer.it_interval.tv_usec = 0;
+    timer.it_value.tv_sec = 2;     // 初始延迟 1 秒
+    timer.it_value.tv_usec = 0;
+	if(setitimer(ITIMER_REAL, &timer, NULL) < 0)
+	{
+		printf("Set timer failed!\n");
+	}
+
 #ifdef __CHERI_PURE_CAPABILITY__
 printf("__CHERI_PURE_CAPABILITY__\n");
 #else

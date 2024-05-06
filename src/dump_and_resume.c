@@ -220,8 +220,8 @@ int cvm_dumping(struct c_thread *ct, void * __capability pcc, void * __capabilit
 
     #if DEBUG
         void *__capability pcc_cap = cheri_getpcc();
-        printf("  gp_ra: 0x%p\n", thread_context.uc_mcontext.mc_gpregs.gp_ra);
-        printf("  gp_sepc: 0x%p\n", thread_context.uc_mcontext.mc_gpregs.gp_sepc);
+        /*printf("  gp_ra: 0x%p\n", thread_context.uc_mcontext.mc_gpregs.gp_ra);
+        printf("  gp_sepc: 0x%p\n", thread_context.uc_mcontext.mc_gpregs.gp_sepc);*/
         printf("pcc_cap:  ");
         CHERI_CAP_PRINT(pcc_cap);
     #endif
@@ -330,7 +330,7 @@ int cvm_dumping(struct c_thread *ct, void * __capability pcc, void * __capabilit
             printf("save as binary file end\n");
     #endif
 
-    save_capfiles();
+    //save_capfiles();
 
     /*destory the resource(if necessary?)*/
     /*important to avoid memory leak*/
@@ -445,6 +445,8 @@ struct resume_temp_struct {
 };
 
 
+#if 0
+
 /*with define calculate the length and resume size*/
 /*index/encode if necessary*/
 void save_capfiles() {
@@ -507,6 +509,8 @@ void resume_capfiles() {
     pthread_mutex_unlock(&cf_store_lock);
 }
 
+
+#endif
 
 int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsigned long *v3) {
     int fd;
@@ -581,7 +585,7 @@ int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsign
             printf("global flag\n");
     #endif
 
-    resume_capfiles();
+    //resume_capfiles();
 
 
     /*read_context_from_fd(fd, &cvms, sizeof(struct s_box) * MAX_CVMS);
@@ -613,8 +617,8 @@ int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsign
 
     #if DEBUG
         void *__capability pcc_cap = cheri_getpcc();
-        printf("  gp_ra: 0x%p\n", new_context.uc_mcontext.mc_gpregs.gp_ra);
-        printf("  gp_sepc: 0x%p\n", new_context.uc_mcontext.mc_gpregs.gp_sepc);
+        printf("  gp_ra: 0x%p\n", new_context.uc_mcontext.mc_capregs.cp_cra);
+        printf("  gp_sepc: 0x%p\n", new_context.uc_mcontext.mc_capregs.cp_sepcc);
         printf("pcc_cap:  ");
         CHERI_CAP_PRINT(pcc_cap);
     #endif

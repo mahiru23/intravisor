@@ -1,5 +1,5 @@
 static __inline__ void * getSP(void) {
-    register void * sp asm("sp");
+   register void * __capability sp asm("csp");
     asm ("" : "=r"(sp));
     return sp;
 }

@@ -158,9 +158,9 @@ get_vm_page_from_vaddr(vm_offset_t vaddr)
 
 void print_context(ucontext_t *context) {
     //printf("Context:\n");
-    printf("  gp_sp: 0x%lx\n", context->uc_mcontext.mc_gpregs.gp_sp);
+    /*printf("  gp_sp: 0x%lx\n", context->uc_mcontext.mc_gpregs.gp_sp);
     printf("  gp_t[0]: 0x%lx\n", context->uc_mcontext.mc_gpregs.gp_t[0]);
-    printf("  gp_t[5]: 0x%lx\n", context->uc_mcontext.mc_gpregs.gp_t[5]);
+    printf("  gp_t[5]: 0x%lx\n", context->uc_mcontext.mc_gpregs.gp_t[5]);*/
 
 #ifdef __CHERI_USER_ABI
     printf(" ?????????????????????????????\n");

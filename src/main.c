@@ -378,7 +378,7 @@ void *init_thread(void *arg) {
 		print_thread_attr();
 		printf("\n---------------------------------------------\n\n");
 
-		start_timers_context();
+		//start_timers_context();
 		//ss_just_test();
 
 		/*int xzxz = 0;
