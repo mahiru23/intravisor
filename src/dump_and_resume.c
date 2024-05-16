@@ -330,7 +330,7 @@ int cvm_dumping(struct c_thread *ct, void * __capability pcc, void * __capabilit
             printf("save as binary file end\n");
     #endif
 
-    save_capfiles();
+   // save_capfiles();
 
     /*destory the resource(if necessary?)*/
     /*important to avoid memory leak*/
@@ -444,9 +444,7 @@ struct resume_temp_struct {
     unsigned long sp;
 };
 
-
-/*with define calculate the length and resume size*/
-/*index/encode if necessary*/
+/*
 void save_capfiles() {
     pthread_mutex_lock(&cf_store_lock);
     int fd = open("capfiles_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -455,14 +453,13 @@ void save_capfiles() {
         exit(EXIT_FAILURE);
     }
 
-    /*step1: save global data structure*/
+
     if (write(fd, cap_files, MAX_CF_FILES * sizeof(struct cap_files_store_s)) == -1) {
         perror("write");
         close(fd);
         exit(EXIT_FAILURE);
     }
 
-    /*step2: save data segment with memcpy()*/
 	for(int i = 0; i < MAX_CF_FILES; i++) {
 		if(cap_files[i].ptr == 0)
 			continue;
@@ -490,10 +487,10 @@ void resume_capfiles() {
         exit(EXIT_FAILURE);
     }
 
-    /*step1: resume global data structure*/
+
     read_context_from_fd(fd, cap_files, MAX_CF_FILES * sizeof(struct cap_files_store_s));
 
-    /*step2: resume data segment with malloc(update ptr)*/
+
 	for(int i = 0; i < MAX_CF_FILES; i++) {
 		if(cap_files[i].ptr == 0)
 			continue;
@@ -507,7 +504,7 @@ void resume_capfiles() {
     pthread_mutex_unlock(&cf_store_lock);
 }
 
-
+*/
 int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsigned long *v3) {
     int fd;
 
@@ -581,7 +578,7 @@ int cvm_resume(struct c_thread *ct, unsigned long *v1, unsigned long *v2, unsign
             printf("global flag\n");
     #endif
 
-    resume_capfiles();
+    //resume_capfiles();
 
 
     /*read_context_from_fd(fd, &cvms, sizeof(struct s_box) * MAX_CVMS);

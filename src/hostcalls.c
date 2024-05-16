@@ -468,7 +468,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		printf("a0: %p\n", (__cheri_addr ptraddr_t)(ccap));
 		printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));*/
 		//sleep(1);
-	int STACK_SIZE1 = MAX(getpagesize(), SIGSTKSZ);
+	int STACK_SIZE1 = SIGSTKSZ;
     /*void *stack = malloc(STACK_SIZE1);
     if (stack == NULL) {
         perror("malloc");
@@ -478,7 +478,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	//void *stack = (void *)(ct->sbox->cmp_begin + 0xe00000);
 
 	printf("a0: %p\n", (void *)a0);
-	printf("stack: %p\n", (void *)stack);
+	//printf("stack: %p\n", (void *)stack);
 
     // 设置信号栈
     stack_t ss;
