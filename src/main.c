@@ -375,10 +375,10 @@ void *init_thread(void *arg) {
 		}*/
 
 		//signal(SIGALRM, sig_func_inner);
-		print_thread_attr();
+		//print_thread_attr();
 		printf("\n---------------------------------------------\n\n");
 
-		start_timers_context();
+		//start_timers_context();
 		//ss_just_test();
 
 		/*int xzxz = 0;
@@ -386,6 +386,8 @@ void *init_thread(void *arg) {
 			xzxz++;
 			sleep(1);
 		}*/
+
+		context_test();
 
 
 		cmv_ctp(me->c_tp);

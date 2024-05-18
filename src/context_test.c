@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <errno.h>
+#include <pthread.h>
+#include <pthread_np.h>
 #include <sys/snapshot.h>
 
 void thread_get_context(void *argv) {
@@ -14,7 +16,7 @@ void thread_get_context(void *argv) {
     while(1) {
         // get info
         sleep(3);
-        printf("---------------------------------------");
+        printf("---------------------------------------\n");
         CHERI_CAP_PRINT(ct->c_tp);
         CHERI_CAP_PRINT(ct->m_tp);
 
@@ -23,7 +25,11 @@ void thread_get_context(void *argv) {
         pid_t pid = getpid();
         pthread_t tid = pthread_self();
 
-        syscall(SYS_get_thread_snapshot, pid, tid, ctx);
+        lwpid_t threadid = pthread_getthreadid_np();
+        printf("threadid: %d\n", threadid);
+        printf("SYS_get_thread_snapshot: %d\n", SYS_get_thread_snapshot);
+
+        syscall(SYS_get_thread_snapshot, pid, tid, threadid, ctx);
 
         printf("ctx.frame.tf_ddc: %p\n", ctx.frame.tf_ddc);
 
@@ -33,7 +39,7 @@ void thread_get_context(void *argv) {
 
 
 
-        printf("---------------------------------------");
+        printf("---------------------------------------\n");
     }
 
 

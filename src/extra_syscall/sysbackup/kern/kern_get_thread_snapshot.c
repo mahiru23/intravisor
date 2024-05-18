@@ -5,12 +5,15 @@
 #include <sys/systm.h>
 #include <sys/uio.h>
 #include <sys/snapshot.h>
+#include <sys/sysproto.h>
+#include <sys/mutex.h> 
+#include <sys/sx.h>
+#include <sys/sched.h>
 #include <machine/pcb.h>
 #include <machine/frame.h>
 
 
-int
-sys_get_thread_snapshot(struct thread *td, struct get_thread_snapshot_args *uap)
+int sys_get_thread_snapshot(struct thread *td, struct get_thread_snapshot_args *uap)
 {
     struct proc *p;
     struct thread *t;
@@ -23,7 +26,7 @@ sys_get_thread_snapshot(struct thread *td, struct get_thread_snapshot_args *uap)
         return ESRCH;
 
     // find thread
-    t = tdfind(p, uap->tid);
+    t = tdfind(uap->threadid, uap->pid);
     if (t == NULL) {
         PROC_UNLOCK(p);
         return ESRCH;
@@ -31,7 +34,7 @@ sys_get_thread_snapshot(struct thread *td, struct get_thread_snapshot_args *uap)
 
     thread_lock(t);
 
-    memcpy(&(ctx.frame), t->td_frame, sizeof(t->td_frame)); // context
+    memcpy(&(ctx.frame), t->td_frame, sizeof(struct trapframe)); // context
     // memory ...?
 
     thread_unlock(t);

@@ -3435,6 +3435,16 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 2;
 		break;
 	}
+	/* get_thread_snapshot */
+	case 583: {
+		struct get_thread_snapshot_args *p = params;
+		iarg[a++] = (pid_t)p->pid; /* pid_t */
+		uarg[a++] = (pthread_t)p->tid; /* pthread_t */
+		iarg[a++] = p->threadid; /* int */
+		uarg[a++] = (intptr_t)p->ctx; /* struct thread_snapshot *__capability */
+		*n_args = 4;
+		break;
+	}
 	default:
 		*n_args = 0;
 		break;
@@ -9179,6 +9189,25 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		case 1:
 			p = "u_int";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* get_thread_snapshot */
+	case 583:
+		switch (ndx) {
+		case 0:
+			p = "pid_t";
+			break;
+		case 1:
+			p = "pthread_t";
+			break;
+		case 2:
+			p = "int";
+			break;
+		case 3:
+			p = "struct thread_snapshot *__capability";
 			break;
 		default:
 			break;
