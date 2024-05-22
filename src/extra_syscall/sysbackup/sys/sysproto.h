@@ -1869,7 +1869,6 @@ struct swapoff_args {
 struct get_thread_snapshot_args {
 	//test
 	char pid_l_[PADL_(pid_t)]; pid_t pid; char pid_r_[PADR_(pid_t)];
-	char tid_l_[PADL_(pthread_t)]; pthread_t tid; char tid_r_[PADR_(pthread_t)];
 	char threadid_l_[PADL_(int)]; int threadid; char threadid_r_[PADR_(int)];
 	char ctx_l_[PADL_(struct thread_snapshot *__capability)]; struct thread_snapshot *__capability ctx; char ctx_r_[PADR_(struct thread_snapshot *__capability)];
 };

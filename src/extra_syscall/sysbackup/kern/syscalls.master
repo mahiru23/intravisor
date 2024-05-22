@@ -3317,9 +3317,8 @@
 583	AUE_NULL	STD {
 		int get_thread_snapshot(
 		    pid_t pid,
-		    pthread_t tid,
 			int threadid,
-			struct thread_snapshot *ctx,
+			_Out_opt_ struct thread_snapshot *ctx,
 		);
 	}
 
