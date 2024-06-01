@@ -247,3 +247,34 @@ st_cap:
 #endif
 	  ret
 
+
+
+
+
+
+
+
+#define GLOBAL_CONTEXT 0x4000010
+#define BASE_CONTEXT 0x4000010
+
+#define GLOBAL_SEALED_PCC 0x4004000
+#define GLOBAL_SEALED_DDC 0x4005000
+#define GLOBAL_DDC 0x4006000
+
+.global cinv_resume
+.type cinv_resume,%function
+cinv_resume:
+
+	ld	ra,	(BASE_CONTEXT)(x0)
+	ld	sp,	(BASE_CONTEXT + 8*1)(x0)
+	ld	gp,	(BASE_CONTEXT + 8*2)(x0)
+	ld	tp,	(BASE_CONTEXT + 8*3)(x0)
+
+	cspecialw	ddc, (GLOBAL_DDC)(x0)
+	CInvoke (GLOBAL_SEALED_PCC)(x0), (GLOBAL_SEALED_DDC)(x0)
+
+
+
+
+
+

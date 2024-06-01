@@ -127,3 +127,69 @@ int host_cap_file_revoke(char *key) {
 //todo: remove the original cap from the CPU contextes of threads inside cVM
 	return 0;
 }
+
+
+void host_cap_file_dump() {
+    pthread_mutex_lock(&cf_store_lock);
+    int fd = open("capfiles_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    if (write(fd, cap_files, MAX_CF_FILES * sizeof(struct cap_files_store_s)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+	for(int i = 0; i < MAX_CF_FILES; i++) {
+		if(cap_files[i].ptr == 0)
+			continue;
+        
+        if (write(fd, cap_files[i].ptr, cap_files[i].size) == -1) {
+            perror("write");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+	}
+    close(fd);
+    pthread_mutex_unlock(&cf_store_lock);
+    #if DEBUG
+            printf("save_capfiles end\n");
+    #endif
+}
+
+void read_context_from_fd(int fd, void *context, size_t len) {
+    size_t bytes_read = read(fd, context, len);
+    if (bytes_read != len) {
+        perror("read");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void host_cap_file_resume() {
+    pthread_mutex_lock(&cf_store_lock);
+    int fd = open("capfiles_dump.bin", O_RDWR);
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    read_context_from_fd(fd, cap_files, MAX_CF_FILES * sizeof(struct cap_files_store_s));
+
+	for(int i = 0; i < MAX_CF_FILES; i++) {
+		if(cap_files[i].ptr == 0)
+			continue;
+
+        void *new_ptr = malloc(cap_files[i].size);
+        read_context_from_fd(fd, new_ptr, cap_files[i].size);
+        cap_files[i].ptr = new_ptr;
+        host_reg_cap(cap_files[i].ptr, cap_files[i].size, cap_files[i].loc);
+	}
+    close(fd); 
+    pthread_mutex_unlock(&cf_store_lock);
+}
+
+
+

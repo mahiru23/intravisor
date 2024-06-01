@@ -18,7 +18,7 @@
 struct s_box cvms[MAX_CVMS];
 
 //default config
-
+lwpid_t threadid = -1;
 int timers = 0;
 int debug_calls = 0;
 //
@@ -387,6 +387,8 @@ void *init_thread(void *arg) {
 			sleep(1);
 		}*/
 
+		threadid = pthread_getthreadid_np();
+
 		context_test();
 
 
@@ -397,13 +399,14 @@ void *init_thread(void *arg) {
 	else {
 		//me->resume_flag = 0;
 		printf("resume_flag_x == 1\n");
-		unsigned long v1;
+		/*unsigned long v1;
 		unsigned long v2;
 		unsigned long v3;
 		cvm_resume(me, &v1, &v2, &v3);
 		cinv_args.s0 = v1;
 		cinv_args.ra = v2;
-		cinv_args.sp = v3;
+		cinv_args.sp = v3;*/
+		cvm_resume(me);
 
 		/*printf("cinv_args.sp = %p\n", cinv_args.sp);
 		printf("cinv_args.ra = %p\n", cinv_args.ra);
@@ -430,7 +433,7 @@ void *init_thread(void *arg) {
 			(void *) &cinv_args);
 		*/
 		printf("cinv_resume\n");
-		read_memory_from_fd(me, v1, v2, v3);
+		//read_memory_from_fd(me, v1, v2, v3);
 
 		//test_resume_jump(me->sbox->box_caps.sealed_ret_from_mon, me->sbox->box_caps.sealed_datacap, me->sbox->box_caps.dcap, v1, v2, v3);
 
@@ -844,6 +847,8 @@ pthread_t run_cvm(int cid, int resume_flag) {
     printf("\n\n\n\nstart Stack2 Address: %p\n", stackAddr);
     printf("start Stack2 Size: %p\n\n\n\n", stackSize);
 
+	printf("run_cvm: %d\n", cid);
+
 	int ret = pthread_create(&ct[0].tid, &ct[0].tattr, init_thread, &ct[0]);
 	if(ret != 0) {
 		perror("pthread create");
@@ -1064,7 +1069,7 @@ int main(int argc, char *argv[]) {
 			debug_calls = atoi(*++argv);
 		} else if(strcmp("--resume", *argv) == 0) {
 			skip_argc += 2;
-			dump_file = *++argv;
+			yaml_cfg = *++argv;
 			dump_flags = 1;
 			break;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {
@@ -1121,7 +1126,7 @@ int main(int argc, char *argv[]) {
 		resume_flag_x = 1;
 		//resume_flag_x
 		//cvm_resume();
-		yaml_cfg = "native-hello.yaml";
+		//yaml_cfg = "native-hello.yaml";
 		parse_and_spawn_yaml(yaml_cfg, 0, 1);
 		
 		return 0;

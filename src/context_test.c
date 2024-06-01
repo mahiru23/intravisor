@@ -15,8 +15,15 @@ void thread_get_context(void *argv) {
     
     while(1) {
         // get info
-        sleep(3);
+        sleep(20);
         printf("---------------------------------------\n");
+
+        cvm_dumping(cid);
+
+
+
+
+
         CHERI_CAP_PRINT(ct->c_tp);
         CHERI_CAP_PRINT(ct->m_tp);
         void * ptr = cheri_getaddress(ct->c_tp);

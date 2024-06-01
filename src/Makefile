@@ -38,7 +38,7 @@ endif
 
 DEPS = 
 OBJDIR = obj
-SRC_MAIN := hostcalls.c main.c utils.c host_cap_calls.c host_cap_files.c host_syscall_callbacs.c host_sc.c test.c dump_and_resume.c timer_test.c context_test.c
+SRC_MAIN := hostcalls.c main.c utils.c host_cap_calls.c host_cap_files.c host_syscall_callbacs.c host_sc.c test.c new_dump_resume.c timer_test.c context_test.c
 SRC_YAML := libyaml/src/api.c libyaml/src/dumper.c libyaml/src/emitter.c libyaml/src/loader.c libyaml/src/parser.c libyaml/src/reader.c libyaml/src/scanner.c libyaml/src/writer.c libyaml/intra_parser.c libyaml/intravisor.c
 SRC_LIBVIRT :=
 SRC_LOADER := load_elf/load_elf.c
