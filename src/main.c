@@ -324,7 +324,7 @@ void *init_thread(void *arg) {
 
 	extern void cinv(void *, void *);
 	extern void cinv_sp(void *, void *, unsigned long);
-	//extern void cinv_resume(void *, void *);
+	extern void cinv_resume_aux(void *, void *);
 	
 #if DEBUG
 	printf("HW: sp = %p, tp = %p, &cinv_args = %p\n", sp, me->c_tp, (void *) &cinv_args);
@@ -406,7 +406,7 @@ void *init_thread(void *arg) {
 		cinv_args.s0 = v1;
 		cinv_args.ra = v2;
 		cinv_args.sp = v3;*/
-		cvm_resume(me);
+		
 
 		/*printf("cinv_args.sp = %p\n", cinv_args.sp);
 		printf("cinv_args.ra = %p\n", cinv_args.ra);
@@ -429,10 +429,11 @@ void *init_thread(void *arg) {
 		CHERI_CAP_PRINT(cinv_args.caps[5]);
 		CHERI_CAP_PRINT(cinv_args.caps[6]);*/
 
-		/*cinv_resume(tp_args[0],	//local_cap_store
+		cinv_resume_aux(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
-		*/
+		
 		printf("cinv_resume\n");
+		cvm_resume(me);
 		//read_memory_from_fd(me, v1, v2, v3);
 
 		//test_resume_jump(me->sbox->box_caps.sealed_ret_from_mon, me->sbox->box_caps.sealed_datacap, me->sbox->box_caps.dcap, v1, v2, v3);

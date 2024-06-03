@@ -37,14 +37,22 @@ int cvm_dumping(int cid) {
     #endif
     int ret = get_thread_snapshot(pid, threadid, cap_ptr);
 
-            CHERI_CAP_PRINT(ctx.frame.tf_sepc);
-            CHERI_CAP_PRINT(ctx.frame.tf_ra);
-            CHERI_CAP_PRINT(ctx.frame.tf_sp);
-                printf("ctx.frame.tf_sepc:%p\n", ctx.frame.tf_sepc);
-    printf("ctx.frame.tf_ra:%p\n", ctx.frame.tf_ra);
-    printf("ctx.frame.tf_sp:%lx\n", (unsigned long)ctx.frame.tf_sp);
-    printf("ctx.frame.tf_tp:%p\n", ctx.frame.tf_tp);
-    printf("ctx.frame.tf_ddc:%p\n", ctx.frame.tf_ddc);
+    CHERI_CAP_PRINT(ctx.frame.tf_ra);
+    CHERI_CAP_PRINT(ctx.frame.tf_sp);
+
+
+
+
+    int tag_array[33];
+    memset(tag_array, 0, sizeof(tag_array));
+    uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
+    for(int i=0;i<33;i++) {
+        void *__capability elem = (void *__capability)(ptr[i]);
+        printf("[%d]", i);
+        CHERI_CAP_PRINT(elem);
+
+        tag_array[i] = cheri_gettag(elem);
+    }
 
     int fd = open("context_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd == -1) {
@@ -52,6 +60,11 @@ int cvm_dumping(int cid) {
         exit(EXIT_FAILURE);
     }
     if (write(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    if (write(fd, tag_array, sizeof(tag_array)) == -1) {
         perror("write");
         close(fd);
         exit(EXIT_FAILURE);
@@ -167,32 +180,9 @@ void bind_stack(struct c_thread *ct) {
     }
 }
 
-int cvm_resume(struct c_thread *ct) {
+struct thread_snapshot ctx;
 
-    struct thread_snapshot ctx;
-    int fd = open("context_dump.bin", O_RDWR);
-    if (fd == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-    if (read(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
-        perror("write");
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
-    close(fd);
-    #if DEBUG
-            printf("cvm_resume thread context end\n");
-    #endif
-
-    host_cap_file_resume();
-    context_set(ct, ctx);
-    //resume_and_enter(ct, );
-    printf("global_context.uc_mcontext.mc_gpregs.gp_sp: %lx\n", global_context.uc_mcontext.mc_gpregs.gp_sp);
-    printf("(unsigned long)global_context.uc_mcontext.mc_gpregs.gp_sp: %lx\n", (unsigned long)global_context.uc_mcontext.mc_gpregs.gp_sp);
-
-
-
+void cvm_resume(struct c_thread *ct) {
     int cid = 16;
 
     void *__capability sealcap;
@@ -205,6 +195,75 @@ int cvm_resume(struct c_thread *ct) {
 #else
 	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
 #endif
+
+    int tag_array[33];
+    int fd = open("context_dump.bin", O_RDWR);
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+    if (read(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    if (read(fd, &tag_array, sizeof(tag_array)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    close(fd);
+    #if DEBUG
+            printf("cvm_resume thread context end\n");
+    #endif
+
+    printf("%p\n", ctx.frame.tf_ra);
+    CHERI_CAP_PRINT(ctx.frame.tf_ra);
+
+    
+    uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
+    for(int i=0;i<33;i++) {
+        /*if(tag_array[i] == 0) {
+            continue;
+        }*/
+        void *__capability elem = (void *__capability)(ptr[i]);
+        printf("[%d]", i);
+        CHERI_CAP_PRINT(elem);
+
+        if(cheri_getperm(elem) == 0) {
+            //ptr[i] = cheri_setoffset(elem, cheri_getoffset(elem));
+            continue;
+        }
+
+        void *__capability valid_cap = cheri_ptrperm((void *)cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+
+        valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
+
+        if(cheri_getsealed(elem))
+            valid_cap = cheri_seal(valid_cap, sealcap);
+
+        ptr[i] = valid_cap;
+        CHERI_CAP_PRINT(valid_cap);
+
+
+        //printf("Before modification: tf_element[%zu] = %p\n", i, (void*)ptr[i]);
+        
+         printf("%p\n", elem);
+
+        //tag_array[i] = cheri_gettag((void * __capability)((unsigned long)(&ctx.frame)+16*i));
+
+
+    }
+
+    host_cap_file_resume();
+    context_set(ct, ctx);
+    //resume_and_enter(ct, );
+    printf("global_context.uc_mcontext.mc_gpregs.gp_sp: %lx\n", global_context.uc_mcontext.mc_gpregs.gp_sp);
+    printf("(unsigned long)global_context.uc_mcontext.mc_gpregs.gp_sp: %lx\n", (unsigned long)global_context.uc_mcontext.mc_gpregs.gp_sp);
+
+
+
+
 
     void *__capability ccap;
     ccap = pure_codecap_create((void *) ct[0].sbox->cmp_begin, (void *) ct[0].sbox->cmp_end, cvms[cid].clean_room);
@@ -221,12 +280,14 @@ int cvm_resume(struct c_thread *ct) {
     printf("cmp_end:%p\n", (void *) ct[0].sbox->cmp_end);
 
     global_ddc = dcap;
-    ccap = cheri_setaddress(ccap, (unsigned long)ctx.frame.tf_sepc);
+    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc)-20);
 
     CHERI_CAP_PRINT(ccap);
 
 	global_sealed_ddc = cheri_seal(dcap, sealcap);
 	global_sealed_pcc = cheri_seal(ccap, sealcap);
+    /*global_sealed_ddc = dcap;
+	global_sealed_pcc = ccap;*/
 
 #if DEBUG
 	printf("ca0: global_sealed_pcc\n");
@@ -249,17 +310,33 @@ printf("gloflag %lx\n", gloflag);
     global_ct = ct;
     //bind_stack(ct);
 
+printf("ctx.frame.tf_ddc:%lx\n", (unsigned long)ctx.frame.tf_ddc);
+
+ctx.frame.tf_sepc = global_sealed_pcc;
+ctx.frame.tf_ddc = global_sealed_ddc;
 
 
 
+#if DEBUG
+	printf("ctx.frame.tf_sepc\n");
+	CHERI_CAP_PRINT(ctx.frame.tf_sepc);
 
-    global_addr_fixed_resume = mmap(0x4000000, 0x10000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
+	printf("ctx.frame.tf_ddc\n");
+	CHERI_CAP_PRINT(ctx.frame.tf_ddc);
+
+#endif
+
+
+//cheri_gettag((void *)((unsigned long)(&ctx.frame)+16*i));
+
+
+    /*global_addr_fixed_resume = mmap(0x4000000, 0x10000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
     if (global_addr_fixed_resume == MAP_FAILED) {
         printf("???????????????\n");
         //close(fd_stack);
         perror("mmap");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
     /*memcpy(0x4000000, &global_context, sizeof(global_context));
     memcpy(0x4000000+0x4000, &global_sealed_pcc, sizeof(global_sealed_pcc));
@@ -331,8 +408,10 @@ printf("gloflag %lx\n", gloflag);
         __asm__ __volatile__("mv a7, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[7]) : "memory");
     }
     else {
-        //extern void cinv_resume();
-        //cinv_resume();
+        extern void cinv_resume();
+        cinv_resume((void *)&ctx, global_ddc);
+        exit(-1);
+
 
         //printf("resume inside\n");
 
