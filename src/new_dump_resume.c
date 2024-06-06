@@ -180,10 +180,11 @@ void bind_stack(struct c_thread *ct) {
     }
 }
 
-struct thread_snapshot ctx;
+
 
 void cvm_resume(struct c_thread *ct) {
     int cid = 16;
+    struct thread_snapshot ctx;
 
     void *__capability sealcap;
 	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
@@ -280,7 +281,7 @@ void cvm_resume(struct c_thread *ct) {
     printf("cmp_end:%p\n", (void *) ct[0].sbox->cmp_end);
 
     global_ddc = dcap;
-    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc)-20);
+    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc)-40);
 
     CHERI_CAP_PRINT(ccap);
 
@@ -348,6 +349,8 @@ ctx.frame.tf_ddc = global_sealed_ddc;
 
 
 
+    printf("stack: %p\n", ct->stack);
+    printf("stack_size: %p\n", ct->stack_size);
 
 
     int fd_stack = open("stack_dump.bin", O_RDWR);
@@ -356,16 +359,53 @@ ctx.frame.tf_ddc = global_sealed_ddc;
         exit(EXIT_FAILURE);
     }
 
-            printf("stack: %p\n", ct->stack);
-            printf("stack_size: %p\n", ct->stack_size);
+    void* stack_temp = (void *)malloc(ct->stack_size);   
+    if (stack_temp == NULL) {
+        perror("malloc stack_temp");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (read(fd, stack_temp, ct->stack_size) == -1) {
+        perror("read stack_temp");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
 
-    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
+    void * __capability stack_temp_cap = cheri_ptrperm(stack_temp, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+    #if DEBUG
+            CHERI_CAP_PRINT(stack_temp_cap);
+    #endif
+
+    //bcopy(stack_temp, ct->stack, ct->stack_size);
+    ctx.stack = stack_temp_cap;
+
+    
+
+
+
+
+    void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+    #if DEBUG
+            CHERI_CAP_PRINT(cap_ptr);
+    #endif
+
+    void * __capability stack_cap_ptr = cheri_ptrperm(ct->stack, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+    #if DEBUG
+            CHERI_CAP_PRINT(stack_cap_ptr);
+    #endif
+    resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr);
+
+    /*char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
     if (addr == MAP_FAILED) {
         printf("???????????????\n");
         close(fd_stack);
         perror("mmap");
         exit(EXIT_FAILURE);
-    }
+    }*/
+
+    exit(-1);
 
 
     if(gloflag == 0) {

@@ -5,8 +5,8 @@
  * $FreeBSD$
  */
 
-#define	FREEBSD32_SYS_syscall	5
-#define	FREEBSD32_SYS_exit	16
+#define	FREEBSD32_SYS_syscall	0
+#define	FREEBSD32_SYS_exit	1
 #define	FREEBSD32_SYS_fork	2
 #define	FREEBSD32_SYS_read	3
 #define	FREEBSD32_SYS_write	4
