@@ -182,11 +182,16 @@ void bind_stack(struct c_thread *ct) {
 
 
 
+void * __capability cap_ptr;
+void *__capability sealcap;
+void * __capability stack_temp_cap;
+void * __capability stack_cap_ptr;
+
 void cvm_resume(struct c_thread *ct) {
     int cid = 16;
     struct thread_snapshot ctx;
 
-    void *__capability sealcap;
+    
 	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
 #if __FreeBSD__
 	if(sysctlbyname("security.cheri.sealcap", &sealcap, &sealcap_size, NULL, 0) < 0) {
@@ -371,7 +376,7 @@ ctx.frame.tf_ddc = global_sealed_ddc;
         exit(EXIT_FAILURE);
     }
 
-    void * __capability stack_temp_cap = cheri_ptrperm(stack_temp, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+    stack_temp_cap = cheri_ptrperm(stack_temp, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
     #if DEBUG
             CHERI_CAP_PRINT(stack_temp_cap);
     #endif
@@ -384,26 +389,28 @@ ctx.frame.tf_ddc = global_sealed_ddc;
 
 
 
-    void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
     #if DEBUG
             CHERI_CAP_PRINT(cap_ptr);
     #endif
 
-    void * __capability stack_cap_ptr = cheri_ptrperm(ct->stack, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    stack_cap_ptr = cheri_ptrperm(ct->stack, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
     #if DEBUG
             CHERI_CAP_PRINT(stack_cap_ptr);
     #endif
-    resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr);
+    
 
-    /*char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
+    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
     if (addr == MAP_FAILED) {
         printf("???????????????\n");
         close(fd_stack);
         perror("mmap");
         exit(EXIT_FAILURE);
-    }*/
+    }
+
+    resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr, stack_temp_cap, sealcap);
 
     exit(-1);
 

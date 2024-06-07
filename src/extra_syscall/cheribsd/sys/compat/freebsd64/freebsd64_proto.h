@@ -1527,6 +1527,8 @@ struct freebsd64_resume_from_snapshot_args {
 	char stack_l_[PADL_(void * __capability)]; void * __capability stack; char stack_r_[PADR_(void * __capability)];
 	char stack_size_l_[PADL_(size_t)]; size_t stack_size; char stack_size_r_[PADR_(size_t)];
 	char ctx_l_[PADL_(struct thread_snapshot *__capability)]; struct thread_snapshot *__capability ctx; char ctx_r_[PADR_(struct thread_snapshot *__capability)];
+	char dumpstack_l_[PADL_(void * __capability)]; void * __capability dumpstack; char dumpstack_r_[PADR_(void * __capability)];
+	char sealcap_l_[PADL_(void * __capability)]; void * __capability sealcap; char sealcap_r_[PADR_(void * __capability)];
 };
 
 

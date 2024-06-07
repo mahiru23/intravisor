@@ -1917,5 +1917,5 @@ freebsd64_get_thread_snapshot(struct thread *td, struct freebsd64_get_thread_sna
 int
 freebsd64_resume_from_snapshot(struct thread *td, struct freebsd64_resume_from_snapshot_args *uap)
 {
-	return (kern_resume_from_snapshot(td, uap->stack, uap->stack_size, uap->ctx));
+	return (kern_resume_from_snapshot(td, uap->stack, uap->stack_size, uap->ctx, uap->dumpstack, uap->sealcap));
 }

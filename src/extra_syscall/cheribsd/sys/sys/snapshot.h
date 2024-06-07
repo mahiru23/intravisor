@@ -24,7 +24,7 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid, int threadid, struct 
 int get_thread_snapshot(pid_t pid, int threadid, struct thread_snapshot *__capability ctx);
 
 
-int	kern_resume_from_snapshot(struct thread *td, void *__capability stack, size_t stack_size, struct thread_snapshot *__capability ctx);
-int resume_from_snapshot(void *__capability stack, size_t stack_size, struct thread_snapshot *__capability ctx);
+int	kern_resume_from_snapshot(struct thread *td, void *__capability stack, size_t stack_size, struct thread_snapshot *__capability ctx, void *__capability dumpstack, void *__capability sealcap);
+int resume_from_snapshot(void *__capability stack, size_t stack_size, struct thread_snapshot *__capability ctx, void *__capability dumpstack, void *__capability sealcap);
 
 #endif /* !_SYS_SNAPSHOT_H_ */

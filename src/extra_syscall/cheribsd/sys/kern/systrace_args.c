@@ -3450,7 +3450,9 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		uarg[a++] = (intptr_t)p->stack; /* void *__capability */
 		uarg[a++] = p->stack_size; /* size_t */
 		uarg[a++] = (intptr_t)p->ctx; /* struct thread_snapshot *__capability */
-		*n_args = 3;
+		uarg[a++] = (intptr_t)p->dumpstack;
+		uarg[a++] = (intptr_t)p->sealcap;
+		*n_args = 5;
 		break;
 	}
 	default:
@@ -9229,6 +9231,12 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		case 2:
 			p = "struct thread_snapshot *__capability";
+			break;
+		case 3:
+			p = "void *__capability";
+			break;	
+		case 4:
+			p = "void *__capability";
 			break;
 		default:
 			break;
