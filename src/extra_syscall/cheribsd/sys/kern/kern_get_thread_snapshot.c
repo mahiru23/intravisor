@@ -110,7 +110,7 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid, int threadid, struct 
 
     //memcpy(&ctx, &ctx2, sizeof(ctx2));
 
-    error = copyout(&ctx2, ctx, sizeof(struct thread_snapshot));
+    error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot));
     PROC_UNLOCK(p);
 
     log(LOG_WARNING, "Debug: error is %d\n", error);
@@ -125,137 +125,11 @@ int sys_get_thread_snapshot(struct thread *td, struct get_thread_snapshot_args *
 
 
 
-
-
-
-int	kern_resume_from_snapshot(struct thread *td, void *__capability stack2, size_t stack_size, struct thread_snapshot *__capability ctx, void *__capability dumpstack, void *__capability sealcap) {
-    
-    
-    //struct proc *p = td->td_proc;
-    //PROC_LOCK(p);
-    //thread_lock(td);
-    
-
-    vm_offset_t stack = (vm_offset_t)cheri_getaddress(stack2);
-
-    
-    //uintcap_t sealcap = td->td_frame->tf_ra;
-    CHERI_CAP_PRINT_KERN(td->td_frame->tf_sp);
-
-    uintcap_t test_cap;
-
-    test_cap = td->td_frame->tf_sp;
-    test_cap = cheri_setoffset(test_cap, cheri_getoffset(test_cap)+20);
-
-    CHERI_CAP_PRINT_KERN(test_cap);
-    CHERI_CAP_PRINT_KERN(td->td_frame->tf_sp);
-
-
-    CHERI_CAP_PRINT_KERN(stack2);
-    log(LOG_WARNING, "stack: %lx\n", (unsigned long)stack);
-    log(LOG_WARNING, "stack_size: %lx\n", (unsigned long)stack_size);
-    log(LOG_WARNING, "td_kstack: %lx\n", (unsigned long)(td->td_kstack));
-    log(LOG_WARNING, "td_kstack_pages: %lx\n", (unsigned long)(td->td_kstack_pages));
-    log(LOG_WARNING, "cheri_getpcc(): ");
-    CHERI_CAP_PRINT_KERN(cheri_getpcc());
-    //log(LOG_WARNING, "cheri_getpcc(): %lx\n", (unsigned long)cheri_getstack());
-
-    log(LOG_WARNING, "cheri_getdefault(): ");
-    CHERI_CAP_PRINT_KERN(cheri_getdefault());
-
-    //log(LOG_WARNING, "cheri_getstack(): ");
-    //CHERI_CAP_PRINT_KERN(cheri_getstack());
-    
-
-    
-    struct thread_snapshot ctx_in;
-    int error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
-    if (error) {
-        return error;
-    }
-    CHERI_CAP_PRINT_KERN(ctx_in.frame.tf_sp);
-    CHERI_CAP_PRINT_KERN(ctx_in.frame.tf_sepc);
-    log(LOG_WARNING, "Debug: ctx.stack is \n");
-    CHERI_CAP_PRINT_KERN(ctx_in.stack);
-
-    uintcap_t *ptr = (uintcap_t *)(&ctx_in.frame.tf_ra);
-    for(int i=0;i<33;i++) {
-        void *__capability elem = (void *__capability)(ptr[i]);
-        log(LOG_WARNING, "[%d]", i);
-        CHERI_CAP_PRINT_KERN(elem);
-
-        if(cheri_getperm(elem) == 0) {
-            continue;
-        }
-
-        //unsigned long* base_addr = (unsigned long*)cheri_getbase(elem);
-
-        long *__capability pcc_temp = cheri_getpcc();
-        pcc_temp = cheri_setaddress(pcc_temp, cheri_getbase(elem));
-
-        CHERI_CAP_PRINT_KERN(cheri_getpcc());
-        CHERI_CAP_PRINT_KERN(pcc_temp);
-
-
-        long *__capability valid_cap = cheri_ptrperm(pcc_temp, cheri_getlength(elem), cheri_getperm(elem));
-        CHERI_CAP_PRINT_KERN(valid_cap);
-        valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
-        //valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
-        if(cheri_getsealed(elem))
-            valid_cap = cheri_seal(valid_cap, sealcap);
-        
-        CHERI_CAP_PRINT_KERN(valid_cap);
-        ptr[i] = (uintcap_t)valid_cap;
-        CHERI_CAP_PRINT_KERN(ptr[i]);
-    }
-
-    CHERI_CAP_PRINT_KERN(ctx_in.frame.tf_sp);
-    CHERI_CAP_PRINT_KERN(ctx_in.frame.tf_sepc);
-    log(LOG_WARNING, "Debug: ctx.stack is \n");
-
-    //return 0;
-
-    void *kernel_buffer;
-    kernel_buffer = malloc(stack_size, M_TEMP, M_WAITOK);
-    if (kernel_buffer == NULL) {
-        log(LOG_WARNING, "malloc error\n");
-        return ENOMEM;
-    }
-    // 从用户空间复制到内核缓冲区
-    error = copyincap(dumpstack, kernel_buffer, stack_size);
-    if (error) {
-        log(LOG_WARNING, "copyin error %d\n", error);
-        free(kernel_buffer, M_TEMP);
-        return error;
-    }
-    /*error = copyoutcap(kernel_buffer, stack2, stack_size);
-    if (error) {
-        log(LOG_WARNING, "copyout error %d\n", error);
-        free(kernel_buffer, M_TEMP);
-        return error;
-    }
-    free(kernel_buffer, M_TEMP);*/
-    log(LOG_WARNING, "stack resume ok\n");
-
-
-    //extern void recover_snapshot(void *);
-    recover_snapshot((void *)&(ctx_in.frame));
-
-    return 0;
-}
-
-int sys_resume_from_snapshot(struct thread *td, struct resume_from_snapshot_args *uap)
-{
-    return (kern_resume_from_snapshot(td, uap->stack, uap->stack_size, uap->ctx, uap->dumpstack, uap->sealcap));
-}
-
-
-
-int	kern_resume_from_snapshot_another_thread(struct thread *td, pid_t pid, int threadid, struct thread_snapshot *__capability ctx) {
+int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct thread_snapshot *__capability ctx) {
     
 
     struct proc *p;
-    struct pcb *pcb;
+    //struct pcb pcbx;
     struct thread *t;
 
     struct thread_snapshot ctx_in;
@@ -268,43 +142,99 @@ int	kern_resume_from_snapshot_another_thread(struct thread *td, pid_t pid, int t
     // find thread
     t = tdfind(threadid, pid);
     if (t == NULL) {
-        PROC_UNLOCK(p);
+        //PROC_UNLOCK(p);
+        log(LOG_WARNING, "tdfind error\n");
         return ESRCH;
     }
 
+    log(LOG_WARNING, "tdfind ok\n");
 
-
-    thread_suspend_one(t);
-
-
-
-
+    
     log(LOG_WARNING, "Debug: thread is %p\n", t);
-    thread_lock(t);
+
+    //PROC_UNLOCK(p);
+    //thread_lock(t);
+    //thread_suspend_one(t);
+    //PROC_UNLOCK(p);
+
+
+    log(LOG_WARNING, "t->td_frame start\n");
 
     /*reg*/
+
+    t->td_frame->tf_ra = ctx_in.frame.tf_ra;
     t->td_frame->tf_sp = ctx_in.frame.tf_sp;
+    t->td_frame->tf_gp = ctx_in.frame.tf_gp;
+    t->td_frame->tf_tp = ctx_in.frame.tf_tp;
+    t->td_frame->tf_t[0] = ctx_in.frame.tf_t[0];
+    t->td_frame->tf_t[1] = ctx_in.frame.tf_t[1];
+    t->td_frame->tf_t[2] = ctx_in.frame.tf_t[2];
+    t->td_frame->tf_t[3] = ctx_in.frame.tf_t[3];
+    t->td_frame->tf_t[4] = ctx_in.frame.tf_t[4];
+    t->td_frame->tf_t[5] = ctx_in.frame.tf_t[5];
+    t->td_frame->tf_t[6] = ctx_in.frame.tf_t[6];
+    t->td_frame->tf_s[0] = ctx_in.frame.tf_s[0];
+    t->td_frame->tf_s[1] = ctx_in.frame.tf_s[1];
+    t->td_frame->tf_s[2] = ctx_in.frame.tf_s[2];
+    t->td_frame->tf_s[3] = ctx_in.frame.tf_s[3];
+    t->td_frame->tf_s[4] = ctx_in.frame.tf_s[4];
+    t->td_frame->tf_s[5] = ctx_in.frame.tf_s[5];
+    t->td_frame->tf_s[6] = ctx_in.frame.tf_s[6];
+    t->td_frame->tf_s[7] = ctx_in.frame.tf_s[7];
+    t->td_frame->tf_s[8] = ctx_in.frame.tf_s[8];
+    t->td_frame->tf_s[9] = ctx_in.frame.tf_s[9];
+    t->td_frame->tf_s[10] = ctx_in.frame.tf_s[10];
+    t->td_frame->tf_s[11] = ctx_in.frame.tf_s[11];
+    t->td_frame->tf_a[0] = ctx_in.frame.tf_a[0];
+    t->td_frame->tf_a[1] = ctx_in.frame.tf_a[1];
+    t->td_frame->tf_a[2] = ctx_in.frame.tf_a[2];
+    t->td_frame->tf_a[3] = ctx_in.frame.tf_a[3];
+    t->td_frame->tf_a[4] = ctx_in.frame.tf_a[4];
+    t->td_frame->tf_a[5] = ctx_in.frame.tf_a[5];
+    t->td_frame->tf_a[6] = ctx_in.frame.tf_a[6];
+    t->td_frame->tf_a[7] = ctx_in.frame.tf_a[7];
+    t->td_frame->tf_sepc = ctx_in.frame.tf_sepc;
+    t->td_frame->tf_ddc = ctx_in.frame.tf_ddc;
+
+    t->td_frame->tf_sstatus = ctx_in.frame.tf_sstatus;
+    t->td_frame->tf_stval = ctx_in.frame.tf_stval;
+    t->td_frame->tf_scause = ctx_in.frame.tf_scause;
+
+    log(LOG_WARNING, "t->td_frame ok\n");
+
     /*......*/
     // update stack here?
     //t->td_kstack
 
+    /*makectx(t->td_frame, &pcbx);
 
+    log(LOG_WARNING, "makectx ok\n");
+    savectx(&pcbx);
 
+    log(LOG_WARNING, "savectx ok\n");*/
 
+    //thread_unsuspend(p);
 
-    makectx(td_frame, pcb);
-    savectx(pcb);
-
-
-    thread_resume(t);
-
-    thread_unlock(t);
+    //thread_unlock(t);
     PROC_UNLOCK(p);
 
+    log(LOG_WARNING, "over\n");
 
 
     return 0;
 }
+
+
+
+
+
+
+int sys_resume_from_snapshot(struct thread *td, struct resume_from_snapshot_args *uap)
+{
+    return (kern_resume_from_snapshot(td, uap->pid, uap->threadid, uap->ctx));
+}
+
+
 
 
 

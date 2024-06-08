@@ -428,7 +428,7 @@ CHERI_CAP_PRINT(cheri_getdefault());
     //__asm__ __volatile__("cspecialw	ddc, %0;" :: "C"(cheri_getdefault_res) : "memory");
 
 
-    resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr, stack_temp_cap, sealcap);
+    //resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr, stack_temp_cap, sealcap);
 
     exit(-1);
 

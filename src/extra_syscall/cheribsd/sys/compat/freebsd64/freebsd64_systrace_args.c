@@ -3447,12 +3447,10 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 	/* freebsd64_resume_from_snapshot */
 	case 584: {
 		struct freebsd64_resume_from_snapshot_args *p = params;
-		uarg[a++] = (intptr_t)p->stack; /* void * */
-		uarg[a++] = p->stack_size; /* size_t */
+		iarg[a++] = (pid_t)p->pid; /* pid_t */
+		iarg[a++] = p->threadid; /* int */
 		uarg[a++] = (intptr_t)p->ctx; /* struct thread_snapshot * */
-		uarg[a++] = (intptr_t)p->dumpstack;
-		uarg[a++] = (intptr_t)p->sealcap;
-		*n_args = 5;
+		*n_args = 3;
 		break;
 	}
 
@@ -9225,19 +9223,13 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 	case 584:
 		switch (ndx) {
 		case 0:
-			p = "void *";
+			p = "pid_t";
 			break;
 		case 1:
-			p = "size_t";
+			p = "int";
 			break;
 		case 2:
 			p = "struct thread_snapshot *";
-			break;
-		case 3:
-			p = "void *";
-			break;
-		case 4:
-			p = "void *";
 			break;
 		default:
 			break;

@@ -1524,11 +1524,9 @@ struct freebsd64_get_thread_snapshot_args {
 	char ctx_l_[PADL_(struct thread_snapshot *__capability)]; struct thread_snapshot *__capability ctx; char ctx_r_[PADR_(struct thread_snapshot *__capability)];
 };
 struct freebsd64_resume_from_snapshot_args {
-	char stack_l_[PADL_(void * __capability)]; void * __capability stack; char stack_r_[PADR_(void * __capability)];
-	char stack_size_l_[PADL_(size_t)]; size_t stack_size; char stack_size_r_[PADR_(size_t)];
+	char pid_l_[PADL_(pid_t)]; pid_t pid; char pid_r_[PADR_(pid_t)];
+	char threadid_l_[PADL_(int)]; int threadid; char threadid_r_[PADR_(int)];
 	char ctx_l_[PADL_(struct thread_snapshot *__capability)]; struct thread_snapshot *__capability ctx; char ctx_r_[PADR_(struct thread_snapshot *__capability)];
-	char dumpstack_l_[PADL_(void * __capability)]; void * __capability dumpstack; char dumpstack_r_[PADR_(void * __capability)];
-	char sealcap_l_[PADL_(void * __capability)]; void * __capability sealcap; char sealcap_r_[PADR_(void * __capability)];
 };
 
 

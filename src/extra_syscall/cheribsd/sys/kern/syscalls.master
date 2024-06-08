@@ -3324,11 +3324,9 @@
 
 584	AUE_NULL	STD {
 		int resume_from_snapshot(
-			_Out_opt_ void *stack,
-			size_t stack_size,
+		    pid_t pid,
+			int threadid,
 			_In_opt_ struct thread_snapshot *ctx,
-			_In_opt_ void *dumpstack,
-			_In_opt_ void *sealcap,
 		);
 	}
 

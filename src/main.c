@@ -389,7 +389,7 @@ void *init_thread(void *arg) {
 
 		threadid = pthread_getthreadid_np();
 
-		context_test();
+		context_test(1);
 
 
 		cmv_ctp(me->c_tp);
@@ -399,6 +399,7 @@ void *init_thread(void *arg) {
 	else {
 		//me->resume_flag = 0;
 		printf("resume_flag_x == 1\n");
+		threadid = pthread_getthreadid_np();
 		/*unsigned long v1;
 		unsigned long v2;
 		unsigned long v3;
@@ -433,7 +434,12 @@ void *init_thread(void *arg) {
 			(void *) &cinv_args);
 		
 		printf("cinv_resume\n");
-		cvm_resume(me);
+		context_test(2);
+
+		while(1) {
+			sleep(2);
+		}
+		//cvm_resume(me);
 		//read_memory_from_fd(me, v1, v2, v3);
 
 		//test_resume_jump(me->sbox->box_caps.sealed_ret_from_mon, me->sbox->box_caps.sealed_datacap, me->sbox->box_caps.dcap, v1, v2, v3);

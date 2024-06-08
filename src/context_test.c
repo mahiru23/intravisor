@@ -89,11 +89,142 @@ void thread_get_context(void *argv) {
     
 }
 
+
+
+void thread_get_context2(void *argv) {
+
+    pthread_detach(pthread_self());
+    int cid = 16; // get or calculate
+    struct c_thread *ct = cvms[cid].threads;
+
+    pid_t pid = getpid();
+
+
+    void * __capability cap_ptr;
+    
+    void * __capability stack_temp_cap;
+    void * __capability stack_cap_ptr;
+
+
+    //int cid = 16;
+    struct thread_snapshot ctx;
+
+    void *__capability sealcap;
+	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
+#if __FreeBSD__
+	if(sysctlbyname("security.cheri.sealcap", &sealcap, &sealcap_size, NULL, 0) < 0) {
+		printf("sysctlbyname(security.cheri.sealcap)\n");
+		while(1) ;
+	}
+#else
+	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
+#endif
+
+
+
+
+    int tag_array[33];
+    int fd = open("context_dump.bin", O_RDWR);
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+    if (read(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    if (read(fd, &tag_array, sizeof(tag_array)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    close(fd);
+    #if DEBUG
+            printf("cvm_resume thread context end\n");
+    #endif
+
+    printf("%p\n", ctx.frame.tf_ra);
+    CHERI_CAP_PRINT(ctx.frame.tf_ra);
+    uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
+    for(int i=0;i<33;i++) {
+        void *__capability elem = (void *__capability)(ptr[i]);
+        printf("[%d]", i);
+        CHERI_CAP_PRINT(elem);
+
+        if(cheri_getperm(elem) == 0) {
+            continue;
+        }
+
+        void *__capability valid_cap = cheri_ptrperm((void *)cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+        if(i==31) {
+            valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem)-20);
+        }
+        else {
+            valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
+        }
+        
+        if(cheri_getsealed(elem))
+            valid_cap = cheri_seal(valid_cap, sealcap);
+        ptr[i] = valid_cap;
+        CHERI_CAP_PRINT(valid_cap);
+        printf("%p\n", elem);
+    }
+
+    void * __capability ccap;
+    ccap = pure_codecap_create((void *) ct[0].sbox->cmp_begin, (void *) ct[0].sbox->cmp_end, cvms[cid].clean_room);
+    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc));
+
+    CHERI_CAP_PRINT(ccap);
+
+    ctx.frame.tf_sepc = ccap;
+    CHERI_CAP_PRINT(ctx.frame.tf_sepc);
+
+
+    sleep(10);
+
+    host_cap_file_resume();
+
+    cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+    #if DEBUG
+            CHERI_CAP_PRINT(cap_ptr);
+    #endif
+
+
+    int fd_stack = open("stack_dump.bin", O_RDWR);
+    if (fd_stack == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
+    if (addr == MAP_FAILED) {
+        printf("???????????????\n");
+        close(fd_stack);
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    resume_from_snapshot(pid, threadid, cap_ptr);
+
+    while(1) {
+        sleep(1);
+    }
+    
+}
+
+
+
 // single thread
-void context_test() {
+void context_test(int no) {
 	int ret = -1;
 	pthread_t timerid;
+    if(no == 1)
 	ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 
+    if(no == 2)
+	ret = pthread_create(&timerid, NULL, (void *)thread_get_context2, NULL); 
+
 	if(ret != 0)
 	{
 		printf("create AppProcessTimer failed!ret=%d err=%s\n", ret, strerror(ret));
