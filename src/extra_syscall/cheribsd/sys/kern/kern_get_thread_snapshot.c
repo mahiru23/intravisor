@@ -228,13 +228,13 @@ int	kern_resume_from_snapshot(struct thread *td, void *__capability stack2, size
         free(kernel_buffer, M_TEMP);
         return error;
     }
-    error = copyoutcap(kernel_buffer, stack2, stack_size);
+    /*error = copyoutcap(kernel_buffer, stack2, stack_size);
     if (error) {
         log(LOG_WARNING, "copyout error %d\n", error);
         free(kernel_buffer, M_TEMP);
         return error;
     }
-    free(kernel_buffer, M_TEMP);
+    free(kernel_buffer, M_TEMP);*/
     log(LOG_WARNING, "stack resume ok\n");
 
 
@@ -248,3 +248,63 @@ int sys_resume_from_snapshot(struct thread *td, struct resume_from_snapshot_args
 {
     return (kern_resume_from_snapshot(td, uap->stack, uap->stack_size, uap->ctx, uap->dumpstack, uap->sealcap));
 }
+
+
+
+int	kern_resume_from_snapshot_another_thread(struct thread *td, pid_t pid, int threadid, struct thread_snapshot *__capability ctx) {
+    
+
+    struct proc *p;
+    struct pcb *pcb;
+    struct thread *t;
+
+    struct thread_snapshot ctx_in;
+    int error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
+    if (error) {
+        return error;
+    }
+
+    p = td->td_proc;
+    // find thread
+    t = tdfind(threadid, pid);
+    if (t == NULL) {
+        PROC_UNLOCK(p);
+        return ESRCH;
+    }
+
+
+
+    thread_suspend_one(t);
+
+
+
+
+    log(LOG_WARNING, "Debug: thread is %p\n", t);
+    thread_lock(t);
+
+    /*reg*/
+    t->td_frame->tf_sp = ctx_in.frame.tf_sp;
+    /*......*/
+    // update stack here?
+    //t->td_kstack
+
+
+
+
+
+    makectx(td_frame, pcb);
+    savectx(pcb);
+
+
+    thread_resume(t);
+
+    thread_unlock(t);
+    PROC_UNLOCK(p);
+
+
+
+    return 0;
+}
+
+
+

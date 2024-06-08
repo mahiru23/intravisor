@@ -286,7 +286,7 @@ void cvm_resume(struct c_thread *ct) {
     printf("cmp_end:%p\n", (void *) ct[0].sbox->cmp_end);
 
     global_ddc = dcap;
-    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc)-40);
+    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc));
 
     CHERI_CAP_PRINT(ccap);
 
@@ -318,8 +318,8 @@ printf("gloflag %lx\n", gloflag);
 
 printf("ctx.frame.tf_ddc:%lx\n", (unsigned long)ctx.frame.tf_ddc);
 
-ctx.frame.tf_sepc = global_sealed_pcc;
-ctx.frame.tf_ddc = global_sealed_ddc;
+//ctx.frame.tf_sepc = global_sealed_pcc;
+//ctx.frame.tf_ddc = global_sealed_ddc;
 
 
 
@@ -402,13 +402,31 @@ ctx.frame.tf_ddc = global_sealed_ddc;
     #endif
     
 
-    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
+    /*char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
     if (addr == MAP_FAILED) {
         printf("???????????????\n");
         close(fd_stack);
         perror("mmap");
         exit(EXIT_FAILURE);
-    }
+    }*/
+        extern void recover_snapshot2(void *);
+        //cinv_resume((void *)&ctx, global_ddc);
+
+    printf("ctx.frame.tf_sstatus, %lx\n", ctx.frame.tf_sstatus);
+        
+
+    //recover_snapshot2((void *)&ctx);
+
+
+//0x480000000
+
+CHERI_CAP_PRINT(cheri_getdefault());
+
+    void * __capability cheri_getdefault_res = cheri_ptrperm(cheri_getdefault(), 0x48000000000, cheri_getperm(cheri_getdefault()));
+    CHERI_CAP_PRINT(cheri_getdefault_res);
+
+    //__asm__ __volatile__("cspecialw	ddc, %0;" :: "C"(cheri_getdefault_res) : "memory");
+
 
     resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr, stack_temp_cap, sealcap);
 

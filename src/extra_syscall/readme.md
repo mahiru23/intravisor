@@ -1,0 +1,1 @@
+./install.sh cheribsd/ $HOME/cheri/cheribsd/
