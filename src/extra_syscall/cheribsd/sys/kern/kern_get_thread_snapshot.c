@@ -49,7 +49,7 @@
       (uintmax_t)cheri_getoffset(cap));				\
 } while (0)
 
-int	kern_get_thread_snapshot(struct thread *td, pid_t pid, int threadid, struct thread_snapshot *__capability ctx) {
+int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, struct thread_snapshot *__capability ctx) {
 
     struct proc *p;
     struct thread *t;
@@ -57,13 +57,17 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid, int threadid, struct 
     int error;
 
     // find proc
-    p = pfind(pid);
+    /*p = pfind(pid);
     if (p == NULL)
         return ESRCH;
     
-    PROC_UNLOCK(p);
-    log(LOG_WARNING, "Debug: proc is %p\n", p);
+    PROC_UNLOCK(p);*/
+    p = td->td_proc;
 
+    pid_t pid = p->p_pid;
+
+
+    log(LOG_WARNING, "Debug: proc is %p\n", p);
     // find thread
     t = tdfind(threadid, pid);
     if (t == NULL) {
@@ -73,7 +77,47 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid, int threadid, struct 
 
     log(LOG_WARNING, "Debug: thread is %p\n", t);
 
+    PROC_UNLOCK(p);
+
+    if(pid_flag == -1) //suspend
+    {
+        PROC_SLOCK(p);
+        thread_lock(t);
+        thread_suspend_one(t);
+        thread_unlock(t);
+        PROC_SUNLOCK(p);
+        log(LOG_WARNING, "Debug: thread is suspend \n");
+        return 0;
+    }
+
+    if(pid_flag == -2) //resume
+    {
+        PROC_LOCK(p);
+        PROC_SLOCK(p);
+        thread_unsuspend(p);
+        PROC_SUNLOCK(p);
+        PROC_UNLOCK(p);
+        log(LOG_WARNING, "Debug: thread is resume \n");
+        return 0;
+    }
+
+    PROC_LOCK(p);
+
+
+
+    log(LOG_WARNING, "cheri_getpcc is \n");
+    CHERI_CAP_PRINT_KERN(cheri_getpcc());
+
     thread_lock(t);
+
+    
+    log(LOG_WARNING, "Debug: t->td_kstack is %lx\n", (unsigned long)(t->td_kstack));
+    //log(LOG_WARNING, "Debug: t->td_kstack is \n");
+    //CHERI_CAP_PRINT_KERN(t->td_kstack);
+
+    
+
+    log(LOG_WARNING, "Debug: t->td_kstack_pages is %d\n", t->td_kstack_pages);
 
     log(LOG_WARNING, "Debug: t->td_frame is %p\n", t->td_frame);
 

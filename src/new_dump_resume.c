@@ -35,6 +35,9 @@ int cvm_dumping(int cid) {
     #if DEBUG
             CHERI_CAP_PRINT(cap_ptr);
     #endif
+
+    get_thread_snapshot(-1, threadid, cap_ptr);
+
     int ret = get_thread_snapshot(pid, threadid, cap_ptr);
 
     CHERI_CAP_PRINT(ctx.frame.tf_ra);
@@ -92,6 +95,11 @@ int cvm_dumping(int cid) {
     host_cap_file_dump();
 
     pthread_mutex_unlock(&ct->sbox->ct_lock);
+    get_thread_snapshot(-2, threadid, cap_ptr);
+
+    while(1) {
+        ;
+    }
 
     exit(-1);
 

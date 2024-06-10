@@ -149,35 +149,83 @@ void thread_get_context2(void *argv) {
     uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
     for(int i=0;i<33;i++) {
         void *__capability elem = (void *__capability)(ptr[i]);
-        printf("[%d]", i);
+        printf("[%d] origin tag: %d\n", i, tag_array[i]);
+        
         CHERI_CAP_PRINT(elem);
 
-        if(cheri_getperm(elem) == 0) {
+        if(tag_array[i] == 0) {
             continue;
         }
 
-        void *__capability valid_cap = cheri_ptrperm((void *)cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
-        if(i==31) {
-            valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem)-20);
+        int ptr_type = 0;//ddc: 0 , pcc: 1
+        if((cheri_getperm(elem)&CHERI_PERM_EXECUTE )!= 0) {
+            printf("pcc\n");
+            ptr_type = 1;
+        }
+
+        //void * new_ptrx = (void *)cheri_getbase(elem);
+
+        //void *__capability new_temp_cap;
+        //CHERI_CAP_PRINT_KERN(pcc_temp);
+
+        /*void *__capability pcc_temp = cheri_getpcc();
+        pcc_temp = cheri_setaddress(pcc_temp, cheri_getbase(elem));
+        CHERI_CAP_PRINT(pcc_temp);*/
+
+        //CHERI_PERMS_HWALL
+        void *__capability valid_cap;// = cheri_ptrperm((void *)cheri_getaddress(elem), cheri_getlength(elem), CHERI_PERMS_HWALL|CHERI_PERMS_SWALL);
+
+        
+
+        if(ptr_type == 0) {
+            if(cheri_getbase(elem) == 0) {
+                valid_cap = cheri_getdefault();
+                valid_cap = cheri_setoffset(valid_cap, 0);
+                valid_cap = cheri_ptrperm(valid_cap, cheri_getlength(elem), cheri_getperm(elem));
+            }
+            else {
+                valid_cap = cheri_ptrperm((void *)cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+            }
+            
+            
+        }
+        else {
+            if(cheri_getbase(elem) == 0) {
+                valid_cap = cheri_getpcc();
+                valid_cap = cheri_setoffset(valid_cap, 0);
+                //valid_cap = cheri_codeptrperm(cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+            }
+            else {
+                valid_cap = cheri_getpcc();
+                valid_cap = cheri_setoffset(valid_cap, 0);
+                valid_cap = cheri_codeptrperm(cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+            }
+        }
+        CHERI_CAP_PRINT(valid_cap);
+        valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
+
+
+        /*if(i==31) {
+            valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
         }
         else {
             valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
-        }
+        }*/
         
         if(cheri_getsealed(elem))
             valid_cap = cheri_seal(valid_cap, sealcap);
         ptr[i] = valid_cap;
         CHERI_CAP_PRINT(valid_cap);
-        printf("%p\n", elem);
+        //printf("%p\n", elem);
     }
 
-    void * __capability ccap;
+    /*void * __capability ccap;
     ccap = pure_codecap_create((void *) ct[0].sbox->cmp_begin, (void *) ct[0].sbox->cmp_end, cvms[cid].clean_room);
     ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc));
 
     CHERI_CAP_PRINT(ccap);
 
-    ctx.frame.tf_sepc = ccap;
+    ctx.frame.tf_sepc = ccap;*/
     CHERI_CAP_PRINT(ctx.frame.tf_sepc);
 
 

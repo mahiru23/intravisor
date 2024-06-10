@@ -442,79 +442,21 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 
 	case 30:
 		printf("here is 30 hostcall\n");
-		//printf("here is 30 hostcall2123\n");
-		//wrap_write(ct->sbox->fd, (void *) comp_to_mon(a0, ct->sbox), a1);
-		//lkl_host_ops.timer_free(a0);
-		//test_hostcall();
-		//get_dirty_page();
-		//count_dirty_pages();
-		//check_dirty_pages(ct);
-		//mmaptest(ct);
-
-		//test_get_thread_info(ct);
-
-
-
-		/*void *__capability ccap;
-		ccap = pure_codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->clean_room);
-		ccap = cheri_setaddress(ccap, (unsigned long) (a0));
-
-		ct[0].sbox->box_caps.sealed_datacap = cheri_seal(dcap, ct[0].sbox->box_caps.sealcap);
-
-
-
-
-		signal(SIGALRM, (__cheri_addr ptraddr_t)(ccap));
-		printf("a0: %p\n", (__cheri_addr ptraddr_t)(ccap));
-		printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));*/
-		//sleep(1);
-	int STACK_SIZE1 = SIGSTKSZ;
-    /*void *stack = malloc(STACK_SIZE1);
-    if (stack == NULL) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }*/
-
-	//void *stack = (void *)(ct->sbox->cmp_begin + 0xe00000);
-
-	printf("a0: %p\n", (void *)a0);
-	//printf("stack: %p\n", (void *)stack);
-
-    // 设置信号栈
-    stack_t ss;
-    //ss.ss_sp = stack;
-	ss.ss_size = STACK_SIZE1;
-	ss.ss_sp = mmap(NULL, ss.ss_size, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0);
-	if (ss.ss_sp == MAP_FAILED) {
-        perror("MAP_FAILED");
-        exit(EXIT_FAILURE);
-    }
-    
-    ss.ss_flags = 0;
-    if (sigaltstack(&ss, NULL) < 0) {
-        perror("sigaltstack");
-        exit(EXIT_FAILURE);
-    }
-
-
-	
-
-    // 注册信号处理函数
-    struct sigaction sa;
-    sa.sa_handler = (void *)a0;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_ONSTACK; // 在信号栈上执行信号处理函数
-    if (sigaction(SIGALRM, &sa, NULL) == -1) {
-        perror("sigaction");
-        exit(EXIT_FAILURE);
-    }
-
-	get_thread_context();
 #ifdef __CHERI_PURE_CAPABILITY__
 printf("__CHERI_PURE_CAPABILITY__\n");
 #else
 printf("no __CHERI_PURE_CAPABILITY__\n");
 #endif
+
+	int i = 0;
+    while(1) {
+		i++;
+        printf("%d \n ", i);
+        sleep(1);
+		if(i==10000000) {
+			i=1;
+		}
+    }
 
 		break;
 
