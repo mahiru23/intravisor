@@ -2,12 +2,14 @@
 include ../cfg.mak
 
 CFLAGS	:= -I load_elf/ -I lkl_wrap -I libyaml/include -Ilibyaml/src -DHAVE_CONFIG_H -Ilibyaml/ -Iarch/$(TARGET_ARCH)/include -DTARGET_ARCH="$(TARGET_ARCH)" -D$(TARGET_ARCH) -DCVM_MAX_SIZE=$(CONFIG_CVM_MAX_SIZE)
+
 LDFLAGS = -lrt -lpthread -lm
 
 #CFLAGS += -DEVAL
 #CFLAGS += -DEXTRA_PAYLOAD="(100*1024*1024)"
 CFLAGS += -DEXTRA_PAYLOAD="(0)"
 
+CC_MON_FLAGS += -fno-stack-protector
 
 ifdef CONFIG_ORC
 CFLAGS += -DSCO

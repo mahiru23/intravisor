@@ -452,7 +452,7 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
     while(1) {
 		i++;
         printf("%d \n ", i);
-        sleep(1);
+        //sleep(1);
 		if(i==10000000) {
 			i=1;
 		}

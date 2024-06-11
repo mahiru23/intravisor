@@ -56,22 +56,15 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
     struct thread_snapshot ctx2;
     int error;
 
-    // find proc
-    /*p = pfind(pid);
-    if (p == NULL)
-        return ESRCH;
-    
-    PROC_UNLOCK(p);*/
     p = td->td_proc;
-
     pid_t pid = p->p_pid;
 
 
-    log(LOG_WARNING, "Debug: proc is %p\n", p);
     // find thread
     t = tdfind(threadid, pid);
     if (t == NULL) {
-        PROC_UNLOCK(p);
+        //PROC_UNLOCK(p);
+        log(LOG_WARNING, "tdfind error\n");
         return ESRCH;
     }
 
@@ -101,63 +94,56 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         return 0;
     }
 
-    PROC_LOCK(p);
+    /*if(pid_flag == -3) //suspend and lock thread
+    {
+        PROC_SLOCK(p);
+        thread_lock(t);
+        thread_suspend_one(t);
+        PROC_SUNLOCK(p);
+        log(LOG_WARNING, "Debug: thread is suspend and lock\n");
+        return 0;
+    }
+
+    if(pid_flag == -4) //resume and unlock thread
+    {
+        PROC_LOCK(p);
+        PROC_SLOCK(p);
+        thread_unlock(t);
+        thread_unsuspend(p);
+        PROC_SUNLOCK(p);
+        PROC_UNLOCK(p);
+        log(LOG_WARNING, "Debug: thread is resume and unlock \n");
+        return 0;
+    }
 
 
+    if(pid_flag == -5) 
+    {
+        PROC_LOCK(p);
+        //thread_lock(t);
 
-    log(LOG_WARNING, "cheri_getpcc is \n");
-    CHERI_CAP_PRINT_KERN(cheri_getpcc());
+        memcpy(&(ctx2.frame), t->td_frame, sizeof(struct trapframe)); // context
+        error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
+        log(LOG_WARNING, "Debug: error is %d\n", error);
 
-    thread_lock(t);
+        thread_unlock(t);
+        PROC_UNLOCK(p);
+    }*/
 
-    
-    log(LOG_WARNING, "Debug: t->td_kstack is %lx\n", (unsigned long)(t->td_kstack));
-    //log(LOG_WARNING, "Debug: t->td_kstack is \n");
-    //CHERI_CAP_PRINT_KERN(t->td_kstack);
+    if(pid_flag == -6) 
+    {
+        PROC_LOCK(p);
+        thread_lock(t);
 
-    
+        memcpy(&(ctx2.frame), t->td_frame, sizeof(struct trapframe)); // context
+        error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
+        log(LOG_WARNING, "Debug: error is %d\n", error);
 
-    log(LOG_WARNING, "Debug: t->td_kstack_pages is %d\n", t->td_kstack_pages);
+        thread_unlock(t);
+        PROC_UNLOCK(p);
+    }
 
-    log(LOG_WARNING, "Debug: t->td_frame is %p\n", t->td_frame);
 
-    log(LOG_WARNING, "Debug: t->td_frame.tf_sepc = %lx\n", (unsigned long)t->td_frame->tf_sepc);
-    log(LOG_WARNING, "Debug: t->td_frame.tf_sp = %lx\n", (unsigned long)t->td_frame->tf_sp);
-    log(LOG_WARNING, "Debug: t->td_frame.tf_ddc = %lx\n", (unsigned long)t->td_frame->tf_ddc);
-    log(LOG_WARNING, "Debug: t->td_frame.tf_ra = %lx\n", (unsigned long)t->td_frame->tf_ra);
-
-    memcpy(&(ctx2.frame), t->td_frame, sizeof(struct trapframe)); // context
-    // memory ...?
-
-    log(LOG_WARNING, "Debug: ctx2.frame.tf_sp = %lx\n", (unsigned long)ctx2.frame.tf_sp);
-
-    thread_unlock(t);
-
-    log(LOG_WARNING, "Debug: ctx2 len = %lu\n", sizeof(ctx2));
-    log(LOG_WARNING, "Debug: ctx2 len = %p\n", &ctx2);
-    log(LOG_WARNING, "Debug: VM_MAXUSER_ADDRESS = %lx\n", VM_MAXUSER_ADDRESS);
-    log(LOG_WARNING, "Debug: ctx = %p\n", (__cheri_fromcap void *)ctx);
-
-    CHERI_CAP_PRINT_KERN(ctx);
-    CHERI_CAP_PRINT_KERN(cheri_getdefault());
-    
-
-    /*void *__capability ccap;
-	ccap = cheri_ptrperm((int *)(CHERI_CAP_KERN_BASE), (size_t)(CHERI_CAP_KERN_LENGTH), CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-    ccap = cheri_setaddress(ccap, (unsigned long) (cheri_getoffset(ctx)));
-    CHERI_CAP_PRINT_KERN(ccap);*/
-    
-
-    // copyout to userspace
-    unsigned long ptr = cheri_getaddress(ctx);
-    log(LOG_WARNING, "Debug: ptr = %lu\n", ptr);
-
-    //memcpy(&ctx, &ctx2, sizeof(ctx2));
-
-    error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot));
-    PROC_UNLOCK(p);
-
-    log(LOG_WARNING, "Debug: error is %d\n", error);
 
     return 0;
 }
@@ -170,19 +156,13 @@ int sys_get_thread_snapshot(struct thread *td, struct get_thread_snapshot_args *
 
 
 int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct thread_snapshot *__capability ctx) {
-    
-
     struct proc *p;
-    //struct pcb pcbx;
     struct thread *t;
-
     struct thread_snapshot ctx_in;
-    int error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
-    if (error) {
-        return error;
-    }
 
     p = td->td_proc;
+    pid = p->p_pid;
+
     // find thread
     t = tdfind(threadid, pid);
     if (t == NULL) {
@@ -192,19 +172,15 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
     }
 
     log(LOG_WARNING, "tdfind ok\n");
-
-    
     log(LOG_WARNING, "Debug: thread is %p\n", t);
-
-    //PROC_UNLOCK(p);
-    //thread_lock(t);
-    //thread_suspend_one(t);
-    //PROC_UNLOCK(p);
-
-
     log(LOG_WARNING, "t->td_frame start\n");
 
     /*reg*/
+
+    int error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
+    if (error) {
+        return error;
+    }
 
     t->td_frame->tf_ra = ctx_in.frame.tf_ra;
     t->td_frame->tf_sp = ctx_in.frame.tf_sp;
@@ -241,29 +217,12 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
     t->td_frame->tf_ddc = ctx_in.frame.tf_ddc;
 
     t->td_frame->tf_sstatus = ctx_in.frame.tf_sstatus;
-    t->td_frame->tf_stval = ctx_in.frame.tf_stval;
-    t->td_frame->tf_scause = ctx_in.frame.tf_scause;
+    /*t->td_frame->tf_stval = ctx_in.frame.tf_stval;
+    t->td_frame->tf_scause = ctx_in.frame.tf_scause;*/
 
     log(LOG_WARNING, "t->td_frame ok\n");
-
-    /*......*/
-    // update stack here?
-    //t->td_kstack
-
-    /*makectx(t->td_frame, &pcbx);
-
-    log(LOG_WARNING, "makectx ok\n");
-    savectx(&pcbx);
-
-    log(LOG_WARNING, "savectx ok\n");*/
-
-    //thread_unsuspend(p);
-
-    //thread_unlock(t);
-    PROC_UNLOCK(p);
-
     log(LOG_WARNING, "over\n");
-
+    PROC_UNLOCK(p);
 
     return 0;
 }

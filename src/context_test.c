@@ -7,15 +7,45 @@
 #include <pthread_np.h>
 #include <sys/snapshot.h>
 
+// 获取当前线程的栈位置和大小
+void print_stack_info() {
+    pthread_t self = pthread_self();
+    pthread_attr_t attr;
+    size_t stack_size;
+    void* stack_addr;
+
+    // 初始化线程属性
+    pthread_attr_init(&attr);
+
+    // 获取线程属性
+    pthread_attr_get_np(self, &attr);
+
+    // 获取栈大小
+    pthread_attr_getstacksize(&attr, &stack_size);
+
+    // 获取栈地址
+    pthread_attr_getstack(&attr, &stack_addr, &stack_size);
+
+    // 打印栈信息
+    printf("Stack address: %p\n", stack_addr);
+    printf("Stack size: %zu bytes\n", stack_size);
+
+    // 销毁线程属性
+    pthread_attr_destroy(&attr);
+}
+
+
 void thread_get_context(void *argv) {
 
     pthread_detach(pthread_self());
     int cid = 16; // get or calculate
     struct c_thread *ct = cvms[cid].threads;
+
+    print_stack_info();
     
     while(1) {
         // get info
-        sleep(20);
+        sleep(5);
         printf("---------------------------------------\n");
 
         cvm_dumping(cid);
@@ -229,7 +259,9 @@ void thread_get_context2(void *argv) {
     CHERI_CAP_PRINT(ctx.frame.tf_sepc);
 
 
-    sleep(10);
+    sleep(5);
+
+    get_thread_snapshot(-1, threadid, cap_ptr);
 
     host_cap_file_resume();
 
@@ -256,6 +288,11 @@ void thread_get_context2(void *argv) {
 
     resume_from_snapshot(pid, threadid, cap_ptr);
 
+
+    sleep(3);
+
+    get_thread_snapshot(-2, threadid, cap_ptr);
+
     while(1) {
         sleep(1);
     }
@@ -266,6 +303,7 @@ void thread_get_context2(void *argv) {
 
 // single thread
 void context_test(int no) {
+    print_stack_info();
 	int ret = -1;
 	pthread_t timerid;
     if(no == 1)

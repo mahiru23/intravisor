@@ -38,7 +38,7 @@ int cvm_dumping(int cid) {
 
     get_thread_snapshot(-1, threadid, cap_ptr);
 
-    int ret = get_thread_snapshot(pid, threadid, cap_ptr);
+    int ret = get_thread_snapshot(-6, threadid, cap_ptr);
 
     CHERI_CAP_PRINT(ctx.frame.tf_ra);
     CHERI_CAP_PRINT(ctx.frame.tf_sp);
@@ -90,6 +90,8 @@ int cvm_dumping(int cid) {
         exit(EXIT_FAILURE);
     }
     close(fd2); 
+
+    sleep(5);//test suspend
 
 
     host_cap_file_dump();

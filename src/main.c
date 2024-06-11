@@ -437,7 +437,8 @@ void *init_thread(void *arg) {
 		context_test(2);
 
 		while(1) {
-			sleep(2);
+			//sleep(2);
+			;
 		}
 		//cvm_resume(me);
 		//read_memory_from_fd(me, v1, v2, v3);
