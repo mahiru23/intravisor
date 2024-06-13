@@ -481,16 +481,9 @@ int start_timers_context();
 void print_thread_attr();
 int ss_just_test();
 extern lwpid_t threadid;
-extern ucontext_t global_context;
 
-extern struct c_thread * global_ct;
-extern void *__capability global_sealed_pcc;
-extern void *__capability global_sealed_ddc;
-extern void *__capability global_ddc;
-extern unsigned long gloflag;
-extern char *global_addr_fixed_resume;
 
-//extern struct c_thread * global_ct;
+
 
 extern int replica_flag;
 extern void * __capability global_cap_ptr;

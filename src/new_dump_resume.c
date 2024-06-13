@@ -2,64 +2,51 @@
 
 #define DEBUG 1
 
-ucontext_t global_context;
-struct c_thread * global_ct;
-
-
-void *__capability global_sealed_pcc;
-void *__capability global_sealed_ddc;
-void *__capability global_ddc;
-unsigned long gloflag;
-
-char *global_addr_fixed_resume;
 int replica_flag = 0;
 void * __capability global_cap_ptr;
-
+int stack_cap_tags[65536]; // max_stack_size = 0x100000
 
 
 int is_capability(void *ptr) {
-
-    //void * __capability cap_ptr
     int res = cheri_gettag((void * __capability)(ptr));
-    /*if(res == 1) {
-        CHERI_CAP_PRINT((void * __capability)(ptr));
-    }*/
     return res;
 }
 
-int stack_cap_tags[65536];
 void get_cap_info(void *stack, size_t size) {
     uintcap_t *stack_ptr = (uintcap_t *)(stack);
-    //long * __capability stack_ptr = (long * __capability)(stack);
+    int elem_len = sizeof(uintcap_t *) * 2; // cap = sizeof(void *)*2
 
+#if DEBUG
     printf("size: %d\n", size);
-    printf("sizeof(uintcap_t *): %d\n", sizeof(long * __capability));
-    int nums = size / sizeof(uintcap_t *);
-    printf("nums: %d\n", nums);
+    printf("elem_len: %d\n", elem_len);
+    printf("check cap nums: %d\n", size / sizeof(uintcap_t *));
+#endif
 
     int sum_cap = 0;
-    for (size_t i = 0; i < size / (sizeof(uintcap_t *)*2); ++i) {
+    for (size_t i = 0; i < size / elem_len; ++i) {
         if (is_capability(stack_ptr[i])) {
-            printf("cap_1: %d\n", i);
+            /*printf("cap_1: %d\n", i);
             void *__capability elem = (void *__capability)(stack_ptr[i]);
-            CHERI_CAP_PRINT(elem);
-
+            CHERI_CAP_PRINT(elem);*/
             stack_cap_tags[i] = 1;
             sum_cap++;
-            continue;
         } else {
             stack_cap_tags[i] = 0;
         }
     }
+#if DEBUG
     printf("sum_cap: %d\n", sum_cap);
+#endif
 }
 
-
+// replica_flag is a state machine here
+// TODO: but it seems not good, so disable suspend & resume here
 int cvm_dumping(int cid) {
-    #if DEBUG
-            printf("cvm_dumping, cid: %d\n", cid);
-    #endif
+#if DEBUG
+        printf("cvm_dumping, cid: %d\n", cid);
+#endif
 
+    // 
     if(cid == 17) {
         pthread_detach(pthread_self());
     }
@@ -75,30 +62,26 @@ int cvm_dumping(int cid) {
     struct thread_snapshot ctx;
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-    #if DEBUG
-            CHERI_CAP_PRINT(cap_ptr);
-    #endif
+#if DEBUG
+        CHERI_CAP_PRINT(cap_ptr);
+#endif
 
     //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
 
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
-
-    printf("get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);, cid: %d\n", cid);
-
-    CHERI_CAP_PRINT(ctx.frame.tf_ra);
-    CHERI_CAP_PRINT(ctx.frame.tf_sp);
-
-    printf("replica_flag: %d\n", replica_flag);
-
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
-    printf("pc_addr: %d\n", pc_addr);
-
-
     unsigned long lower_bound = comp_to_mon(ct->sbox->base, ct->sbox);
     unsigned long upper_bound = comp_to_mon(ct->sbox->top, ct->sbox);
+
+#if DEBUG
+    printf("get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);, cid: %d\n", cid);
+    CHERI_CAP_PRINT(ctx.frame.tf_ra);
+    CHERI_CAP_PRINT(ctx.frame.tf_sp);
+    printf("replica_flag: %d\n", replica_flag);
+    printf("pc_addr: %d\n", pc_addr);
     printf("lower_bound: %lx\n", lower_bound);
     printf("upper_bound: %lx\n", upper_bound);
-
+#endif
 
     if(replica_flag == 2) { // in intravisor userspace
         ;
@@ -113,13 +96,11 @@ int cvm_dumping(int cid) {
         return 0;
     }
 
-
-
     int tag_array[33];
     memset(tag_array, 0, sizeof(tag_array));
     uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
     for(int i=0;i<33;i++) {
-        void *__capability elem = (void *__capability)(ptr[i]);
+        void *__capability elem = (void *__capability)(ptr[i]); // copyoutcap with tag
         printf("[%d]", i);
         CHERI_CAP_PRINT(elem);
         tag_array[i] = cheri_gettag(elem);
@@ -131,20 +112,20 @@ int cvm_dumping(int cid) {
         exit(EXIT_FAILURE);
     }
     if (write(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
-        perror("write 2");
+        perror("write thread_snapshot");
         close(fd);
         exit(EXIT_FAILURE);
     }
     if (write(fd, tag_array, sizeof(tag_array)) == -1) {
-        perror("write 3");
+        perror("write tag_array");
         close(fd);
         exit(EXIT_FAILURE);
     }
     close(fd);
-    #if DEBUG
-            printf("thread_context end\n");
 
-    #endif
+#if DEBUG
+    printf("thread_context end\n");
+#endif
 
     get_cap_info(ct->stack, ct->stack_size);
 
@@ -154,13 +135,11 @@ int cvm_dumping(int cid) {
         exit(EXIT_FAILURE);
     }
     if (write(fd2, ct->stack, ct->stack_size) == -1) {
-        perror("write");
+        perror("write ct->stack");
         close(fd);
         exit(EXIT_FAILURE);
     }
     close(fd2); 
-
-    printf("stack_cap_tags size: %d\n", sizeof(stack_cap_tags));
 
     int fd3 = open("stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd3 == -1) {
@@ -168,21 +147,19 @@ int cvm_dumping(int cid) {
         exit(EXIT_FAILURE);
     }
     if (write(fd3, stack_cap_tags, 65536*sizeof(int)) == -1) {
-        perror("write");
+        perror("write stack_cap_tags");
         close(fd);
         exit(EXIT_FAILURE);
     }
     close(fd3); 
 
-
-
-
     host_cap_file_dump();
 
+#if DEBUG
     printf("test suspend start\n");
     //sleep(5);//test suspend
     printf("test suspend end\n");
-
+#endif
     
     if(replica_flag == 2) { // in intravisor userspace
         replica_flag = 0;
