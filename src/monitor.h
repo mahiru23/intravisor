@@ -489,3 +489,16 @@ extern void *__capability global_sealed_ddc;
 extern void *__capability global_ddc;
 extern unsigned long gloflag;
 extern char *global_addr_fixed_resume;
+
+//extern struct c_thread * global_ct;
+
+extern int replica_flag;
+extern void * __capability global_cap_ptr;
+#define SUSPEND_THREAD -1
+#define RESUEM_THREAD -2
+#define CAPTURE_SNAPSHOT -6
+int cvm_dumping(int cid);
+
+extern int stack_cap_tags[65536];
+
+

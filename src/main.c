@@ -347,6 +347,10 @@ void *init_thread(void *arg) {
 	//pthread_sigmask(SIG_SETMASK, NULL, NULL);
 
 	
+    struct thread_snapshot ctx2;
+    global_cap_ptr = cheri_ptrperm(&ctx2, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+
 
 	if(resume_flag_x == 0) {
 		printf("resume_flag_x == 0\n");
@@ -355,37 +359,8 @@ void *init_thread(void *arg) {
 		unsigned long v3;
 		//cvm_resume(me, &v1, &v2, &v3);
 
-		timer_para time_val = {0};
-
-		printf("-----time_val-----\n");
-
-		/*printf("tid: %d\n", me->tid);
-		printf("tid: %d\n", me->tid);*/
-
-		//timer thread
-		/*time_val.interval_time = 10;
-		time_val.func = timer_callback_func;
-		timer_create_test(&time_val);
-		timer_callback_func();
-
-		int xzxz = 0;
-		while(xzxz<20) {
-			xzxz++;
-			sleep(1);
-		}*/
-
-		//signal(SIGALRM, sig_func_inner);
-		//print_thread_attr();
 		printf("\n---------------------------------------------\n\n");
 
-		//start_timers_context();
-		//ss_just_test();
-
-		/*int xzxz = 0;
-		while(xzxz<20) {
-			xzxz++;
-			sleep(1);
-		}*/
 
 		threadid = pthread_getthreadid_np();
 
@@ -400,35 +375,6 @@ void *init_thread(void *arg) {
 		//me->resume_flag = 0;
 		printf("resume_flag_x == 1\n");
 		threadid = pthread_getthreadid_np();
-		/*unsigned long v1;
-		unsigned long v2;
-		unsigned long v3;
-		cvm_resume(me, &v1, &v2, &v3);
-		cinv_args.s0 = v1;
-		cinv_args.ra = v2;
-		cinv_args.sp = v3;*/
-		
-
-		/*printf("cinv_args.sp = %p\n", cinv_args.sp);
-		printf("cinv_args.ra = %p\n", cinv_args.ra);
-		printf("cinv_args.s0 = %p\n", cinv_args.s0);
-		printf("sizeof = %d\n", sizeof(cinv_args));
-
-		printf("&cinv_args = %p\n", &cinv_args);
-		printf("&cinv_args.caps = %p\n", &cinv_args.caps);
-		printf("&cinv_args.sp = %p\n", &cinv_args.sp);
-		printf("&cinv_args.ra = %p\n", &cinv_args.ra);
-		printf("&cinv_args.s0 = %p\n", &cinv_args.s0);
-
-		printf("me->c_tp = %p\n", me->c_tp);
-
-		CHERI_CAP_PRINT(cinv_args.caps[0]);
-		CHERI_CAP_PRINT(cinv_args.caps[1]);
-		CHERI_CAP_PRINT(cinv_args.caps[2]);
-		CHERI_CAP_PRINT(cinv_args.caps[3]);
-		CHERI_CAP_PRINT(cinv_args.caps[4]);
-		CHERI_CAP_PRINT(cinv_args.caps[5]);
-		CHERI_CAP_PRINT(cinv_args.caps[6]);*/
 
 		cinv_resume_aux(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
@@ -437,8 +383,8 @@ void *init_thread(void *arg) {
 		context_test(2);
 
 		while(1) {
-			//sleep(2);
-			;
+			sleep(15);
+			
 		}
 		//cvm_resume(me);
 		//read_memory_from_fd(me, v1, v2, v3);

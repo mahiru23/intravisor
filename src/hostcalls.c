@@ -405,31 +405,27 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	__intcap_t ret = 0;
 //      struct lkl_disk *disk;
 
-	/*printf("sp hostcall: %p\n", getSP());
-	printf("ra hostcall: %p\n", getRA());
-	printf("a0: %p\n", (void *)a0);
-	printf("(void *) comp_to_mon(a0, ct->sbox): %p\n", (void *) comp_to_mon(a0, ct->sbox));
-	printf("a1: %p\n", (void *)a1);
-	printf("(void *) comp_to_mon(a1, ct->sbox): %p\n", (void *) comp_to_mon(a1, ct->sbox));
-	printf("a2: %p\n", (void *)a2);
-	printf("(void *) comp_to_mon(a2, ct->sbox): %p\n", (void *) comp_to_mon(a2, ct->sbox));
+	pthread_mutex_lock(&ct->sbox->ct_lock);
 
-	printf("a3: %p\n", (void *)a3);
-	printf("a4: %p\n", (void *)a4);
-	printf("a5: %p\n", (void *)a5);
-	printf("a6: %p\n", (void *)a6);
+	if(replica_flag == 1) {
+		replica_flag = 2;
+		printf("replica_flag == 1\n");
+		pthread_t temp_pthread_id;
+		int retx = pthread_create(&temp_pthread_id, NULL, (void *)cvm_dumping, (void *)(17)); 
+		if(ret != 0)
+		{
+			printf("pthread_create=%d err=%s\n", ret, strerror(retx));
+		}
+		/*void *cret;
+		pthread_join(temp_pthread_id, &cret);*/
+	}
 
-	printf("getCT0() hostcall: %p\n", getCT0());
-	printf("getCT1() hostcall: %p\n", getCT1());
-	printf("getCA0() hostcall: %p\n", getCA0());
-	printf("getCA1() hostcall: %p\n", getCA1());
+	pthread_mutex_unlock(&ct->sbox->ct_lock);
+	while(replica_flag == 2) {
+		;
+	}
 
-	
-
-	printf("test_resume_jump\n");*/
-
-	
-
+	printf("replica_flag loop end\n");
 
 	switch (t5) {
 	case 1:
@@ -449,14 +445,14 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 #endif
 
 	int i = 0;
-    while(1) {
+    /*while(1) {
 		i++;
         printf("%d \n ", i);
         //sleep(1);
 		if(i==10000000) {
 			i=1;
 		}
-    }
+    }*/
 
 		break;
 
@@ -506,7 +502,7 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 		//mv_sp(a3);
 
 		//exit(-1);
-		cvm_dumping(ct,ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap, ct->sbox->box_caps.dcap, a4, a5, a3);
+		//cvm_dumping(ct,ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap, ct->sbox->box_caps.dcap, a4, a5, a3);
 		break;
 
 

@@ -12,37 +12,106 @@ void *__capability global_ddc;
 unsigned long gloflag;
 
 char *global_addr_fixed_resume;
+int replica_flag = 0;
+void * __capability global_cap_ptr;
+
+
+
+int is_capability(void *ptr) {
+
+    //void * __capability cap_ptr
+    int res = cheri_gettag((void * __capability)(ptr));
+    /*if(res == 1) {
+        CHERI_CAP_PRINT((void * __capability)(ptr));
+    }*/
+    return res;
+}
+
+int stack_cap_tags[65536];
+void get_cap_info(void *stack, size_t size) {
+    uintcap_t *stack_ptr = (uintcap_t *)(stack);
+    //long * __capability stack_ptr = (long * __capability)(stack);
+
+    printf("size: %d\n", size);
+    printf("sizeof(uintcap_t *): %d\n", sizeof(long * __capability));
+    int nums = size / sizeof(uintcap_t *);
+    printf("nums: %d\n", nums);
+
+    int sum_cap = 0;
+    for (size_t i = 0; i < size / (sizeof(uintcap_t *)*2); ++i) {
+        if (is_capability(stack_ptr[i])) {
+            printf("cap_1: %d\n", i);
+            void *__capability elem = (void *__capability)(stack_ptr[i]);
+            CHERI_CAP_PRINT(elem);
+
+            stack_cap_tags[i] = 1;
+            sum_cap++;
+            continue;
+        } else {
+            stack_cap_tags[i] = 0;
+        }
+    }
+    printf("sum_cap: %d\n", sum_cap);
+}
+
 
 int cvm_dumping(int cid) {
-    struct c_thread *ct = cvms[cid].threads;
-    //struct c_thread *ct, void * __capability pcc, void * __capability ddc, void * __capability ddc2,unsigned long s0,unsigned long ra,unsigned long sp
-    //printf("cvm_dumping\n");
     #if DEBUG
             printf("cvm_dumping, cid: %d\n", cid);
     #endif
 
+    if(cid == 17) {
+        pthread_detach(pthread_self());
+    }
+    cid = 16;
+
+    struct c_thread *ct = cvms[cid].threads;
+
     // thread_lock
     pthread_mutex_lock(&ct->sbox->ct_lock);
     // proc/thread struct lock with extra syscall
-
     printf("pthread_mutex_lock, cid: %d\n", cid);
 
     struct thread_snapshot ctx;
-    pid_t pid = getpid();
-    //lwpid_t threadid = pthread_getthreadid_np();
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
     #if DEBUG
             CHERI_CAP_PRINT(cap_ptr);
     #endif
 
-    get_thread_snapshot(-1, threadid, cap_ptr);
+    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
 
-    int ret = get_thread_snapshot(-6, threadid, cap_ptr);
+    int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
+
+    printf("get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);, cid: %d\n", cid);
 
     CHERI_CAP_PRINT(ctx.frame.tf_ra);
     CHERI_CAP_PRINT(ctx.frame.tf_sp);
 
+    printf("replica_flag: %d\n", replica_flag);
+
+    unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
+    printf("pc_addr: %d\n", pc_addr);
+
+
+    unsigned long lower_bound = comp_to_mon(ct->sbox->base, ct->sbox);
+    unsigned long upper_bound = comp_to_mon(ct->sbox->top, ct->sbox);
+    printf("lower_bound: %lx\n", lower_bound);
+    printf("upper_bound: %lx\n", upper_bound);
+
+
+    if(replica_flag == 2) { // in intravisor userspace
+        ;
+    }
+    else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
+        ;
+    }
+    else { // in kernel
+        replica_flag = 1;
+        pthread_mutex_unlock(&ct->sbox->ct_lock);
+        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        return 0;
+    }
 
 
 
@@ -53,7 +122,6 @@ int cvm_dumping(int cid) {
         void *__capability elem = (void *__capability)(ptr[i]);
         printf("[%d]", i);
         CHERI_CAP_PRINT(elem);
-
         tag_array[i] = cheri_gettag(elem);
     }
 
@@ -63,12 +131,12 @@ int cvm_dumping(int cid) {
         exit(EXIT_FAILURE);
     }
     if (write(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
-        perror("write");
+        perror("write 2");
         close(fd);
         exit(EXIT_FAILURE);
     }
     if (write(fd, tag_array, sizeof(tag_array)) == -1) {
-        perror("write");
+        perror("write 3");
         close(fd);
         exit(EXIT_FAILURE);
     }
@@ -78,6 +146,7 @@ int cvm_dumping(int cid) {
 
     #endif
 
+    get_cap_info(ct->stack, ct->stack_size);
 
     int fd2 = open("stack_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd2 == -1) {
@@ -91,449 +160,48 @@ int cvm_dumping(int cid) {
     }
     close(fd2); 
 
-    sleep(5);//test suspend
+    printf("stack_cap_tags size: %d\n", sizeof(stack_cap_tags));
+
+    int fd3 = open("stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (fd3 == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+    if (write(fd3, stack_cap_tags, 65536*sizeof(int)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    close(fd3); 
+
+
 
 
     host_cap_file_dump();
 
-    pthread_mutex_unlock(&ct->sbox->ct_lock);
-    get_thread_snapshot(-2, threadid, cap_ptr);
+    printf("test suspend start\n");
+    //sleep(5);//test suspend
+    printf("test suspend end\n");
 
-    while(1) {
-        ;
+    
+    if(replica_flag == 2) { // in intravisor userspace
+        replica_flag = 0;
     }
 
-    exit(-1);
+    pthread_mutex_unlock(&ct->sbox->ct_lock);
+    //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+
+    /*while(1) {
+        ;
+    }
+*/
+    //exit(-1);
 
 
     return 0;
 }
 
 
-void resume_and_enter(struct c_thread *ct, unsigned long v1, unsigned long v2, unsigned long v3) {
-    int fd = open("stack_dump.bin", O_RDWR);
-    if (fd == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-	__asm__ __volatile__("cmove cs3, %0;" :: "C"(ct->sbox->box_caps.sealed_ret_from_mon) : "memory");
-	__asm__ __volatile__("cmove cs4, %0;" :: "C"(ct->sbox->box_caps.sealed_datacap) : "memory");
-	__asm__ __volatile__("cmove cs5, %0;" :: "C"(ct->sbox->box_caps.dcap) : "memory");
-    __asm__ __volatile__("cmove cs9, %0;" :: "C"(ct->c_tp) : "memory");
-	__asm__ __volatile__("mv s6, %0;" :: "r"(v1) : "memory");
-	__asm__ __volatile__("mv s7, %0;" :: "r"(v2) : "memory");
-	__asm__ __volatile__("mv s8, %0;" :: "r"(v3) : "memory");
-    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, 0);
-    if (addr == MAP_FAILED) {
-        printf("???????????????\n");
-        close(fd);
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }
-    __asm__ __volatile__("cmove ctp, cs9;" ::  : "memory");
-	__asm__ __volatile__("mv ra, s7;" ::  : "memory");
-	__asm__ __volatile__("mv sp, s8;" ::  : "memory");
-	__asm__ __volatile__("mv s0, s6;" ::  : "memory");
-	__asm__ __volatile__("cspecialw	ddc, cs5;" ::  : "memory");
-	__asm__ __volatile__("CInvoke cs3, cs4;" ::  : "memory");
-}
-
-void context_set(struct c_thread *ct, struct thread_snapshot ctx) {
-    //global_context;
-
-#if (defined riscv_hyb) || (defined riscv)
-
-    global_context.uc_mcontext.mc_gpregs.gp_ra = ctx.frame.tf_ra;
-    global_context.uc_mcontext.mc_gpregs.gp_sp = ctx.frame.tf_sp;
-    global_context.uc_mcontext.mc_gpregs.gp_gp = ctx.frame.tf_gp;
-    global_context.uc_mcontext.mc_gpregs.gp_tp = ctx.frame.tf_tp;
-    for(int i=0;i<7;i++) {
-        global_context.uc_mcontext.mc_gpregs.gp_t[i] = ctx.frame.tf_t[i];
-    }
-    for(int i=0;i<12;i++) {
-        global_context.uc_mcontext.mc_gpregs.gp_s[i] = ctx.frame.tf_s[i];
-    }
-    for(int i=0;i<8;i++) {
-        global_context.uc_mcontext.mc_gpregs.gp_a[i] = ctx.frame.tf_a[i];
-    }
-
-    global_context.uc_mcontext.mc_gpregs.gp_sepc = ctx.frame.tf_sepc;
-    global_context.uc_mcontext.mc_gpregs.gp_sstatus = ctx.frame.tf_sstatus;
-
-
-    //global_context->uc_mcontext.mc_gpregs.gp_sp
-# else
-    printf("? only RISC-V\n");
-    while(1) {
-        sleep();
-    }
-
-#endif
-}
-
-void bind_stack(struct c_thread *ct) {
-    int fd = open("stack_dump.bin", O_RDWR);
-    if (fd == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-
-            printf("stack: %p\n", ct->stack);
-            printf("stack_size: %p\n", ct->stack_size);
-
-    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, 0);
-    if (addr == MAP_FAILED) {
-        printf("???????????????\n");
-        close(fd);
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }
-}
-
-
-
-void * __capability cap_ptr;
-void *__capability sealcap;
-void * __capability stack_temp_cap;
-void * __capability stack_cap_ptr;
-
-void cvm_resume(struct c_thread *ct) {
-    int cid = 16;
-    struct thread_snapshot ctx;
-
-    
-	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
-#if __FreeBSD__
-	if(sysctlbyname("security.cheri.sealcap", &sealcap, &sealcap_size, NULL, 0) < 0) {
-		printf("sysctlbyname(security.cheri.sealcap)\n");
-		while(1) ;
-	}
-#else
-	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
-#endif
-
-    int tag_array[33];
-    int fd = open("context_dump.bin", O_RDWR);
-    if (fd == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-    if (read(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
-        perror("write");
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
-    if (read(fd, &tag_array, sizeof(tag_array)) == -1) {
-        perror("write");
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
-    close(fd);
-    #if DEBUG
-            printf("cvm_resume thread context end\n");
-    #endif
-
-    printf("%p\n", ctx.frame.tf_ra);
-    CHERI_CAP_PRINT(ctx.frame.tf_ra);
-
-    
-    uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
-    for(int i=0;i<33;i++) {
-        /*if(tag_array[i] == 0) {
-            continue;
-        }*/
-        void *__capability elem = (void *__capability)(ptr[i]);
-        printf("[%d]", i);
-        CHERI_CAP_PRINT(elem);
-
-        if(cheri_getperm(elem) == 0) {
-            //ptr[i] = cheri_setoffset(elem, cheri_getoffset(elem));
-            continue;
-        }
-
-        void *__capability valid_cap = cheri_ptrperm((void *)cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
-
-        valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
-
-        if(cheri_getsealed(elem))
-            valid_cap = cheri_seal(valid_cap, sealcap);
-
-        ptr[i] = valid_cap;
-        CHERI_CAP_PRINT(valid_cap);
-
-
-        //printf("Before modification: tf_element[%zu] = %p\n", i, (void*)ptr[i]);
-        
-         printf("%p\n", elem);
-
-        //tag_array[i] = cheri_gettag((void * __capability)((unsigned long)(&ctx.frame)+16*i));
-
-
-    }
-
-    host_cap_file_resume();
-    context_set(ct, ctx);
-    //resume_and_enter(ct, );
-    printf("global_context.uc_mcontext.mc_gpregs.gp_sp: %lx\n", global_context.uc_mcontext.mc_gpregs.gp_sp);
-    printf("(unsigned long)global_context.uc_mcontext.mc_gpregs.gp_sp: %lx\n", (unsigned long)global_context.uc_mcontext.mc_gpregs.gp_sp);
-
-
-
-
-
-    void *__capability ccap;
-    ccap = pure_codecap_create((void *) ct[0].sbox->cmp_begin, (void *) ct[0].sbox->cmp_end, cvms[cid].clean_room);
-    void *__capability dcap = datacap_create((void *) ct[0].sbox->cmp_begin, (void *) ct[0].sbox->cmp_end, cvms[cid].clean_room);
-
-    printf("ctx.frame.tf_sepc:%p\n", ctx.frame.tf_sepc);
-    printf("ctx.frame.tf_ra:%p\n", ctx.frame.tf_ra);
-    printf("ctx.frame.tf_sp:%p\n", ctx.frame.tf_sp);
-    printf("ctx.frame.tf_sp:%lx\n", (unsigned long)ctx.frame.tf_sp);
-    printf("ctx.frame.tf_tp:%p\n", ctx.frame.tf_tp);
-    printf("ctx.frame.tf_ddc:%p\n", ctx.frame.tf_ddc);
-
-    printf("cmp_begin:%p\n", (void *) ct[0].sbox->cmp_begin);
-    printf("cmp_end:%p\n", (void *) ct[0].sbox->cmp_end);
-
-    global_ddc = dcap;
-    ccap = cheri_setaddress(ccap, (unsigned long)(ctx.frame.tf_sepc));
-
-    CHERI_CAP_PRINT(ccap);
-
-	global_sealed_ddc = cheri_seal(dcap, sealcap);
-	global_sealed_pcc = cheri_seal(ccap, sealcap);
-    /*global_sealed_ddc = dcap;
-	global_sealed_pcc = ccap;*/
-
-#if DEBUG
-	printf("ca0: global_sealed_pcc\n");
-	CHERI_CAP_PRINT(global_sealed_pcc);
-
-	printf("ca1: global_sealed_ddc\n");
-	CHERI_CAP_PRINT(global_sealed_ddc);
-
-	printf("ca2: global_ddc\n");
-	CHERI_CAP_PRINT(global_ddc);
-#endif
-
-
-CHERI_CAP_PRINT(ctx.frame.tf_ddc);
-printf("ctx.frame.tf_ddc:%lx\n", (unsigned long)ctx.frame.tf_ddc);
-gloflag = (unsigned long)ctx.frame.tf_ddc;
-
-printf("gloflag %lx\n", gloflag);
-
-    global_ct = ct;
-    //bind_stack(ct);
-
-printf("ctx.frame.tf_ddc:%lx\n", (unsigned long)ctx.frame.tf_ddc);
-
-//ctx.frame.tf_sepc = global_sealed_pcc;
-//ctx.frame.tf_ddc = global_sealed_ddc;
-
-
-
-#if DEBUG
-	printf("ctx.frame.tf_sepc\n");
-	CHERI_CAP_PRINT(ctx.frame.tf_sepc);
-
-	printf("ctx.frame.tf_ddc\n");
-	CHERI_CAP_PRINT(ctx.frame.tf_ddc);
-
-#endif
-
-
-//cheri_gettag((void *)((unsigned long)(&ctx.frame)+16*i));
-
-
-    /*global_addr_fixed_resume = mmap(0x4000000, 0x10000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
-    if (global_addr_fixed_resume == MAP_FAILED) {
-        printf("???????????????\n");
-        //close(fd_stack);
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }*/
-
-    /*memcpy(0x4000000, &global_context, sizeof(global_context));
-    memcpy(0x4000000+0x4000, &global_sealed_pcc, sizeof(global_sealed_pcc));
-    memcpy(0x4000000+0x5000, &global_sealed_ddc, sizeof(global_sealed_ddc));
-    memcpy(0x4000000+0x6000, &global_ddc, sizeof(global_ddc));*/
-
-
-
-
-
-
-    printf("stack: %p\n", ct->stack);
-    printf("stack_size: %p\n", ct->stack_size);
-
-
-    int fd_stack = open("stack_dump.bin", O_RDWR);
-    if (fd_stack == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-
-    void* stack_temp = (void *)malloc(ct->stack_size);   
-    if (stack_temp == NULL) {
-        perror("malloc stack_temp");
-        exit(EXIT_FAILURE);
-    }
-    
-    if (read(fd, stack_temp, ct->stack_size) == -1) {
-        perror("read stack_temp");
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
-
-    stack_temp_cap = cheri_ptrperm(stack_temp, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-    #if DEBUG
-            CHERI_CAP_PRINT(stack_temp_cap);
-    #endif
-
-    //bcopy(stack_temp, ct->stack, ct->stack_size);
-    ctx.stack = stack_temp_cap;
-
-    
-
-
-
-
-    cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
-    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-    #if DEBUG
-            CHERI_CAP_PRINT(cap_ptr);
-    #endif
-
-    stack_cap_ptr = cheri_ptrperm(ct->stack, ct->stack_size, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
-    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-    #if DEBUG
-            CHERI_CAP_PRINT(stack_cap_ptr);
-    #endif
-    
-
-    /*char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
-    if (addr == MAP_FAILED) {
-        printf("???????????????\n");
-        close(fd_stack);
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }*/
-        extern void recover_snapshot2(void *);
-        //cinv_resume((void *)&ctx, global_ddc);
-
-    printf("ctx.frame.tf_sstatus, %lx\n", ctx.frame.tf_sstatus);
-        
-
-    //recover_snapshot2((void *)&ctx);
-
-
-//0x480000000
-
-CHERI_CAP_PRINT(cheri_getdefault());
-
-    void * __capability cheri_getdefault_res = cheri_ptrperm(cheri_getdefault(), 0x48000000000, cheri_getperm(cheri_getdefault()));
-    CHERI_CAP_PRINT(cheri_getdefault_res);
-
-    //__asm__ __volatile__("cspecialw	ddc, %0;" :: "C"(cheri_getdefault_res) : "memory");
-
-
-    //resume_from_snapshot(stack_cap_ptr, ct->stack_size, cap_ptr, stack_temp_cap, sealcap);
-
-    exit(-1);
-
-
-    if(gloflag == 0) {
-        //printf("resume outside\n");
-        //bind_stack(ct);
-        //setcontext(global_context);
-        __asm__ __volatile__("mv ra, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_ra) : "memory");
-        __asm__ __volatile__("mv sp, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_sp) : "memory");
-        __asm__ __volatile__("mv gp, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_gp) : "memory");
-        __asm__ __volatile__("mv tp, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_tp) : "memory");
-
-        __asm__ __volatile__("mv t0, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[0]) : "memory");
-        __asm__ __volatile__("mv t1, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[1]) : "memory");
-        __asm__ __volatile__("mv t2, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[2]) : "memory");
-        __asm__ __volatile__("mv t3, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[3]) : "memory");
-        __asm__ __volatile__("mv t4, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[4]) : "memory");
-        __asm__ __volatile__("mv t5, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[5]) : "memory");
-        __asm__ __volatile__("mv t6, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[6]) : "memory");
-
-        __asm__ __volatile__("mv s0, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[0]) : "memory");
-        __asm__ __volatile__("mv s1, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[1]) : "memory");
-        __asm__ __volatile__("mv s2, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[2]) : "memory");
-        __asm__ __volatile__("mv s3, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[3]) : "memory");
-        __asm__ __volatile__("mv s4, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[4]) : "memory");
-        __asm__ __volatile__("mv s5, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[5]) : "memory");
-        __asm__ __volatile__("mv s6, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[6]) : "memory");
-        __asm__ __volatile__("mv s7, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[7]) : "memory");
-        __asm__ __volatile__("mv s8, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[8]) : "memory");
-        __asm__ __volatile__("mv s9, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[9]) : "memory");
-        __asm__ __volatile__("mv s10, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[10]) : "memory");
-        __asm__ __volatile__("mv s11, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[11]) : "memory");
-
-        __asm__ __volatile__("mv a0, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[0]) : "memory");
-        __asm__ __volatile__("mv a1, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[1]) : "memory");
-        __asm__ __volatile__("mv a2, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[2]) : "memory");
-        __asm__ __volatile__("mv a3, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[3]) : "memory");
-        __asm__ __volatile__("mv a4, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[4]) : "memory");
-        __asm__ __volatile__("mv a5, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[5]) : "memory");
-        __asm__ __volatile__("mv a6, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[6]) : "memory");
-        __asm__ __volatile__("mv a7, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[7]) : "memory");
-    }
-    else {
-        extern void cinv_resume();
-        cinv_resume((void *)&ctx, global_ddc);
-        exit(-1);
-
-
-        //printf("resume inside\n");
-
-        __asm__ __volatile__("mv ra, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_ra) : "memory");
-        __asm__ __volatile__("mv sp, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_sp) : "memory");
-        __asm__ __volatile__("mv gp, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_gp) : "memory");
-        __asm__ __volatile__("mv tp, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_tp) : "memory");
-
-        __asm__ __volatile__("mv t0, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[0]) : "memory");
-        __asm__ __volatile__("mv t1, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[1]) : "memory");
-        __asm__ __volatile__("mv t2, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[2]) : "memory");
-        __asm__ __volatile__("mv t3, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[3]) : "memory");
-        __asm__ __volatile__("mv t4, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[4]) : "memory");
-        __asm__ __volatile__("mv t5, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[5]) : "memory");
-        __asm__ __volatile__("mv t6, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_t[6]) : "memory");
-
-        __asm__ __volatile__("mv s0, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[0]) : "memory");
-        __asm__ __volatile__("mv s1, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[1]) : "memory");
-        __asm__ __volatile__("mv s2, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[2]) : "memory");
-        __asm__ __volatile__("mv s3, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[3]) : "memory");
-        __asm__ __volatile__("mv s4, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[4]) : "memory");
-        __asm__ __volatile__("mv s5, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[5]) : "memory");
-        __asm__ __volatile__("mv s6, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[6]) : "memory");
-        __asm__ __volatile__("mv s7, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[7]) : "memory");
-        __asm__ __volatile__("mv s8, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[8]) : "memory");
-        __asm__ __volatile__("mv s9, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[9]) : "memory");
-        __asm__ __volatile__("mv s10, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[10]) : "memory");
-        __asm__ __volatile__("mv s11, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_s[11]) : "memory");
-
-        __asm__ __volatile__("mv a0, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[0]) : "memory");
-        __asm__ __volatile__("mv a1, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[1]) : "memory");
-        __asm__ __volatile__("mv a2, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[2]) : "memory");
-        __asm__ __volatile__("mv a3, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[3]) : "memory");
-        __asm__ __volatile__("mv a4, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[4]) : "memory");
-        __asm__ __volatile__("mv a5, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[5]) : "memory");
-        __asm__ __volatile__("mv a6, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[6]) : "memory");
-        __asm__ __volatile__("mv a7, %0;" :: "r"(global_context.uc_mcontext.mc_gpregs.gp_a[7]) : "memory");
-        
-        //__asm__ __volatile__("cmove cs5, %0;" :: "C"(global_ddc) : "memory");
-        __asm__ __volatile__("cspecialw	ddc, %0;" :: "C"(global_ddc) : "memory");
-        __asm__ __volatile__("CInvoke %0, %1;" :: "C"(global_sealed_pcc), "C"(global_sealed_ddc) : "memory");
-
-    }
-
-
-
-}
 
 
 

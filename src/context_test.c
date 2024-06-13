@@ -7,121 +7,146 @@
 #include <pthread_np.h>
 #include <sys/snapshot.h>
 
-// 获取当前线程的栈位置和大小
+void *__capability sealcap;
+
 void print_stack_info() {
     pthread_t self = pthread_self();
     pthread_attr_t attr;
     size_t stack_size;
     void* stack_addr;
-
-    // 初始化线程属性
     pthread_attr_init(&attr);
-
-    // 获取线程属性
     pthread_attr_get_np(self, &attr);
-
-    // 获取栈大小
     pthread_attr_getstacksize(&attr, &stack_size);
-
-    // 获取栈地址
     pthread_attr_getstack(&attr, &stack_addr, &stack_size);
-
-    // 打印栈信息
     printf("Stack address: %p\n", stack_addr);
     printf("Stack size: %zu bytes\n", stack_size);
-
-    // 销毁线程属性
     pthread_attr_destroy(&attr);
 }
 
 
 void thread_get_context(void *argv) {
-
     pthread_detach(pthread_self());
     int cid = 16; // get or calculate
     struct c_thread *ct = cvms[cid].threads;
 
-    print_stack_info();
-    
     while(1) {
         // get info
         sleep(5);
-        printf("---------------------------------------\n");
+        printf("cvm_dumping 1 ---------------------------------------\n");
 
         cvm_dumping(cid);
 
-
-
-
-
-        CHERI_CAP_PRINT(ct->c_tp);
-        CHERI_CAP_PRINT(ct->m_tp);
-        void * ptr = cheri_getaddress(ct->c_tp);
-        printf("ptr: %p\n", ptr);
-        printf("ptr2: %p\n", cheri_getaddress(ct->m_tp));
-        printf("(__cheri_fromcap void *)(ct->c_tp): %p\n", (__cheri_fromcap void *)(ct->c_tp));
-        printf("(__cheri_fromcap void *)(ct->m_tp): %p\n", (__cheri_fromcap void *)(ct->m_tp));
-
-
-
-        // extra syscall get context
-        struct thread_snapshot ctx;
-        pid_t pid = getpid();
-        pthread_t tid = pthread_self();
-
-        //lwpid_t threadid = pthread_getthreadid_np();
-        printf("threadid: %d\n", threadid);
-        printf("SYS_get_thread_snapshot: %d\n", SYS_get_thread_snapshot);
-
-        void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-        CHERI_CAP_PRINT(cap_ptr);
-
-    	/*void *__capability ccap = datacap_create((void *)(0), (void *) (0xffffffffffffffff), true);
-        ccap = cheri_setaddress(ccap, (unsigned long) (&ctx));
-        CHERI_CAP_PRINT(ccap);*/
-
-
-        //syscall(SYS_get_thread_snapshot, pid, tid, threadid, &ctx);
-        int ret = get_thread_snapshot(pid, threadid, cap_ptr);
-        printf("%d\n", sizeof(ctx));
-        printf("%d\n", ret);
-        //get_thread_snapshot(1);
-
-
-    //void *ptr = cheri_address_get(ctx.frame.tf_sepc);
-    //uintcap_t read_only_cap = cheri_perms_and(cap_ptr, CHERI_PERM_LOAD);
-    
-
-        /*printf("ctx.frame.tf_sp: %p\n", &ctx.frame.tf_sp);
-        printf("ctx.frame.tf_ra: %p\n", &ctx.frame.tf_ra);
-        printf("ctx.frame.tf_ddc: %p\n", &ctx.frame.tf_ddc);
-        printf("ctx.frame.tf_sepc: %p\n", &ctx.frame.tf_sepc);
-        printf("ctx.frame.tf_sepc: %p\n", ctx.frame.tf_sepc);*/
-
-
-
-        CHERI_CAP_PRINT(ctx.frame.tf_sepc);
-        CHERI_CAP_PRINT(ctx.frame.tf_ra);
-        CHERI_CAP_PRINT(ctx.frame.tf_sp);
-        //unsigned long value = *(unsigned long *)(ctx.frame.tf_sepc); 
-        //printf("ctx.frame.tf_sepc: %p\n", value);
-
-
-
-
-
-
-
-        printf("---------------------------------------\n");
+        printf("cvm_dumping 2 ---------------------------------------\n");
     }
-
-
-    
 }
 
+void *__capability invalid_to_valid(void *__capability elem, void *__capability valid_cap) {
 
+    /*printf("flag 1:  ");
+    CHERI_CAP_PRINT(elem);*/
 
-void thread_get_context2(void *argv) {
+    int ptr_type = 0; //ddc: 0 , pcc: 1
+    if((cheri_getperm(elem) & CHERI_PERM_EXECUTE) != 0) {
+        printf("pcc\n");
+        ptr_type = 1;
+    }
+
+    if(cheri_getbase(elem) != 0) {
+        CHERI_CAP_PRINT(elem);
+    }
+
+    if(ptr_type == 0) {
+        if(cheri_getbase(elem) == 0) {
+            valid_cap = cheri_getdefault();
+            valid_cap = cheri_setoffset(valid_cap, 0);
+            valid_cap = cheri_ptrperm(valid_cap, cheri_getlength(elem), cheri_getperm(elem));
+        }
+        else {
+            valid_cap = cheri_ptrperm((void *)cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+        }
+    }
+    else {
+        if(cheri_getbase(elem) == 0) {
+            valid_cap = cheri_getpcc();
+            valid_cap = cheri_setoffset(valid_cap, 0);
+        }
+        else {
+            valid_cap = cheri_getpcc();
+            valid_cap = cheri_setoffset(valid_cap, 0);
+            valid_cap = cheri_codeptrperm(cheri_getbase(elem), cheri_getlength(elem), cheri_getperm(elem));
+        }
+    }
+
+    /*printf("flag 2:  ");
+    CHERI_CAP_PRINT(valid_cap);*/
+    valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
+    /*printf("flag 3:  ");
+    CHERI_CAP_PRINT(valid_cap);*/
+    if(cheri_getoffset(elem) == 0x4c22) {
+        CHERI_CAP_PRINT(elem);
+        printf("ra!!!!!\n\n\n\n\n ");
+        //return valid_cap;
+    }
+    if(cheri_getsealed(elem)) {
+        CHERI_CAP_PRINT(elem);
+        if(cheri_gettype(elem) == 0xfffffffffffffffe) {
+            printf("cheri_sealentry :  \n\n\n\n\n\n");
+
+            valid_cap = cheri_sealentry(valid_cap);
+            
+        }
+        else {
+            valid_cap = cheri_seal(valid_cap, sealcap);
+        }
+            
+
+        printf("cheri_getsealed :  ");
+        CHERI_CAP_PRINT(valid_cap);
+    }
+
+    //CHERI_CAP_PRINT(valid_cap);
+    return valid_cap;
+}
+
+void set_cap_info(void *stack, size_t size) {
+    //void **stack_ptr = (void **)stack;
+    uintcap_t *stack_ptr = (uintcap_t *)(stack);
+
+    //unsigned long *__capability ptr = (unsigned long *__capability)(stack_ptr);
+    uintcap_t *ptr = (uintcap_t *)(stack);
+
+    printf("size: %d\n", size);
+    printf("sizeof(uintcap_t *): %d\n", sizeof(uintcap_t *));
+    int nums = size / sizeof(uintcap_t *);
+    printf("nums: %d\n", nums);
+
+    int sum_cap = 0;
+    for (size_t i = 0; i < size / (sizeof(uintcap_t *)*2); ++i) {
+        if (stack_cap_tags[i] == 1) {
+            //printf("i: %d\n", i);
+            unsigned long here_pos = (unsigned long)stack + i*sizeof(void *)*2;
+            //if(0x43fffb000<= here_pos&& here_pos<= 0x43fffd000)
+                //printf("here_pos: %lx\n", here_pos);
+
+            void * __capability valid_cap;
+            valid_cap = invalid_to_valid((void *__capability)(stack_ptr[i]), valid_cap);
+            ptr[i] = valid_cap;
+
+            /*printf("flag 3:  ");
+            CHERI_CAP_PRINT(valid_cap); 
+            CHERI_CAP_PRINT(ptr[i]); */
+
+            sum_cap++;
+
+            //if(0x43fffb000<= here_pos&& here_pos<= 0x43fffd000) {
+            /*printf("flag 4:  ");
+            CHERI_CAP_PRINT((void *__capability)(stack_ptr[i])); */
+        }
+    }
+    printf("sum_cap: %d\n", sum_cap);
+}
+
+void thread_resume(void *argv) {
 
     pthread_detach(pthread_self());
     int cid = 16; // get or calculate
@@ -139,7 +164,6 @@ void thread_get_context2(void *argv) {
     //int cid = 16;
     struct thread_snapshot ctx;
 
-    void *__capability sealcap;
 	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
 #if __FreeBSD__
 	if(sysctlbyname("security.cheri.sealcap", &sealcap, &sealcap_size, NULL, 0) < 0) {
@@ -149,9 +173,6 @@ void thread_get_context2(void *argv) {
 #else
 	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
 #endif
-
-
-
 
     int tag_array[33];
     int fd = open("context_dump.bin", O_RDWR);
@@ -261,7 +282,7 @@ void thread_get_context2(void *argv) {
 
     sleep(5);
 
-    get_thread_snapshot(-1, threadid, cap_ptr);
+    //get_thread_snapshot(-1, threadid, cap_ptr);
 
     host_cap_file_resume();
 
@@ -286,12 +307,28 @@ void thread_get_context2(void *argv) {
         exit(EXIT_FAILURE);
     }
 
+    int fd3 = open("stack_cap_tags.bin", O_RDWR);
+    if (fd3 == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+    if (read(fd3, stack_cap_tags, sizeof(stack_cap_tags)) == -1) {
+        perror("write");
+        close(fd3);
+        exit(EXIT_FAILURE);
+    }
+
+
+    set_cap_info(ct->stack, ct->stack_size);
+
     resume_from_snapshot(pid, threadid, cap_ptr);
 
+    printf("resume_from_snapshot over\n");
 
-    sleep(3);
 
-    get_thread_snapshot(-2, threadid, cap_ptr);
+    //sleep(3);
+
+    //get_thread_snapshot(-2, threadid, cap_ptr);
 
     while(1) {
         sleep(1);
@@ -309,7 +346,7 @@ void context_test(int no) {
     if(no == 1)
 	ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 
     if(no == 2)
-	ret = pthread_create(&timerid, NULL, (void *)thread_get_context2, NULL); 
+	ret = pthread_create(&timerid, NULL, (void *)thread_resume, NULL); 
 
 	if(ret != 0)
 	{
