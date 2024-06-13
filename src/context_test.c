@@ -87,6 +87,9 @@ void *__capability invalid_to_valid(void *__capability elem, void *__capability 
         printf("ra!!!!!\n\n\n\n\n ");
         //return valid_cap;
     }
+
+    valid_cap = cheri_setflags(valid_cap, cheri_getflags(elem));
+
     if(cheri_getsealed(elem)) {
         CHERI_CAP_PRINT(elem);
         if(cheri_gettype(elem) == 0xfffffffffffffffe) {
@@ -254,6 +257,8 @@ void thread_resume(void *argv) {
         }
         CHERI_CAP_PRINT(valid_cap);
         valid_cap = cheri_setoffset(valid_cap, cheri_getoffset(elem));
+
+        valid_cap = cheri_setflags(valid_cap, cheri_getflags(elem));
 
 
         /*if(i==31) {
