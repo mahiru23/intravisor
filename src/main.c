@@ -59,7 +59,24 @@ void *init_thread(void *arg) {
 
 	char *cenv = (char *) (sp_read - 4096 * 3);	//originally, here was *2, but networking corrupts this memory
 	volatile unsigned long *sp = (sp_read - 4096 * 4);	//I don't know why, but without volatile sp gets some wrong value after initing CENV in -O2
-
+	printf("test1\n");
+	printf("%lx\n", sp);
+	printf("%lx\n", getTP());
+	printf("%p\n", sp_read);
+	printf("%p\n", me->stack);
+	printf("%p\n", getSP());
+	CHERI_CAP_PRINT(me->c_tp);
+	printf("%p\n", me->c_tp);
+	printf("%lx\n", me->c_tp);
+	/*
+	printf("%lx\n", sp);
+	sp;
+	 getTP();
+	  sp_read;
+	   me->stack;
+	    getSP();
+		 me->c_tp;
+		  me->c_tp;*/
 	printf("target SP = %lx, old TP = %lx sp_read = %p, me->stacl = %p, getSP()=%p, me->c_tp = %p %lx\n", sp, getTP(), sp_read, me->stack, getSP(), me->c_tp, me->c_tp);
 	int cenv_size = 0;
 	sp[0] = me->argc;
@@ -345,6 +362,10 @@ void *init_thread(void *arg) {
 //printf doesn't work anymore 
 
 	//pthread_sigmask(SIG_SETMASK, NULL, NULL);
+
+	//mmaptest(me);
+	printf("---over--------------\n\n");
+	//exit(-1);
 
 	
     struct thread_snapshot ctx2;
@@ -712,6 +733,7 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 	printf("ct[0].stack: %p\n", ct[0].stack);
 	printf("STACK_SIZE: %p\n", STACK_SIZE);
 
+
 	void* stackAddr;
     size_t stackSize;
     pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);
@@ -800,6 +822,17 @@ pthread_t run_cvm(int cid, int resume_flag) {
     pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);
     printf("\n\n\n\nstart Stack2 Address: %p\n", stackAddr);
     printf("start Stack2 Size: %p\n\n\n\n", stackSize);
+
+
+	/*-------------------------------------------------------*/
+	/*test mmap file here only thread[0]*/
+
+	mmap_file_test(ct, resume_flag);
+
+	printf("mmap_file_test! \n");
+
+	/*-------------------------------------------------------*/
+
 
 	printf("run_cvm: %d\n", cid);
 

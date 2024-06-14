@@ -1,4 +1,5 @@
 ./install.sh cheribsd/ $HOME/cheri/cheribsd/
+./install.sh dirtycap/ $HOME/cheri/cheribsd/
 
 sysctl -a | grep aslr
 

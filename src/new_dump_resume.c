@@ -39,6 +39,62 @@ void get_cap_info(void *stack, size_t size) {
 #endif
 }
 
+int write_to_stackfile(int fd, void *addr, int size, int page) {
+    if (lseek(fd, page*PAGE_SIZE, SEEK_SET) == -1) {
+        perror("write_to_stackfile lseek");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (write(fd, addr, size) == -1) {
+        perror("write_to_stackfile write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    return 0;
+}
+
+void stack_dirty_page_update(struct c_thread *ct) {
+
+    int fd = open("stack_dump.bin", O_WRONLY, 0777);
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    int pages = (ct->stack_size) / PAGE_SIZE;
+
+    get_dirty_page_num(ct->stack_size, pages, ct->stack);
+
+    char *vec = (char *)malloc(pages);
+    if (vec == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    if (mincore(ct->stack, ct->stack_size, vec) == -1) {
+        perror("mincore");
+        free(vec);
+        exit(EXIT_FAILURE);
+    }
+    for (int i = 0; i < pages; i++) {
+        if (vec[i] & MINCORE_MODIFIED) {
+            write_to_stackfile(fd, ct->stack+i*PAGE_SIZE, PAGE_SIZE, i);
+        }
+    }
+
+    if (msync(ct->stack, ct->stack_size, MS_SYNC) == -1) {
+        perror("msync");
+        exit(EXIT_FAILURE);
+    }
+
+    get_dirty_page_num(ct->stack_size, pages, ct->stack);
+
+    close(fd); 
+    
+}
+
+
+
 // replica_flag is a state machine here
 // TODO: but it seems not good, so disable suspend & resume here
 int cvm_dumping(int cid) {
@@ -129,7 +185,7 @@ int cvm_dumping(int cid) {
 
     get_cap_info(ct->stack, ct->stack_size);
 
-    int fd2 = open("stack_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    /*int fd2 = open("stack_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd2 == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -139,7 +195,9 @@ int cvm_dumping(int cid) {
         close(fd);
         exit(EXIT_FAILURE);
     }
-    close(fd2); 
+    close(fd2); */
+
+    stack_dirty_page_update(ct);
 
     int fd3 = open("stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd3 == -1) {

@@ -179,11 +179,11 @@ void thread_resume(void *argv) {
             CHERI_CAP_PRINT(cap_ptr); 
     #endif
 
-    void * stack_space_temp = malloc(ct->stack_size);
+    /*void * stack_space_temp = malloc(ct->stack_size);
     if(stack_space_temp == NULL) {
-        
-    printf("stack_space_temp == NULL\n");
-    }
+        printf("stack_space_temp == NULL\n");
+    }*/
+
     int fd_stack = open("stack_dump.bin", O_RDWR);
     if (fd_stack == -1) {
         perror("open");
