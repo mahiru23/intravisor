@@ -7,7 +7,7 @@
 #include <pthread_np.h>
 #include <sys/snapshot.h>
 
-void *__capability sealcap;
+void *__capability global_sealcap;
 
 void print_stack_info() {
     pthread_t self = pthread_self();
@@ -29,12 +29,34 @@ void thread_get_context(void *argv) {
     int cid = 16; // get or calculate
     struct c_thread *ct = cvms[cid].threads;
 
+    struct sigaction sa;
+    sa.sa_sigaction = cvm_dumping;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGALRM, &sa, NULL) == -1) {
+        perror("sigaction");
+        return ;
+    }
+
+    struct itimerval timer;
+    timer.it_value.tv_sec = 7;
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 7;
+    timer.it_interval.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+        perror("setitimer");
+        return ;
+    }
+
+    printf("3 pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
+    printf("3 threadid: %d\n", threadid);
+
     while(1) {
         // get info
-        sleep(5);
-        printf("cvm_dumping 1 ---------------------------------------\n");
+        sleep(1);
+        /*printf("cvm_dumping 1 ---------------------------------------\n");
         cvm_dumping(cid);
-        printf("cvm_dumping 2 ---------------------------------------\n");
+        printf("cvm_dumping 2 ---------------------------------------\n");*/
     }
 }
 
@@ -71,29 +93,33 @@ void *__capability invalid_to_valid(void *__capability elem, void *__capability 
     valid_cap = cheri_setflags(valid_cap, cheri_getflags(elem));
 
     if(cheri_getsealed(elem)) {
-        CHERI_CAP_PRINT(elem);
+        //printf("cheri_getsealed :  ");
+        //CHERI_CAP_PRINT(valid_cap);
         if(cheri_gettype(elem) == 0xfffffffffffffffe) {
             valid_cap = cheri_sealentry(valid_cap);
         }
         else {
-            valid_cap = cheri_seal(valid_cap, sealcap);
+            valid_cap = cheri_seal(valid_cap, global_sealcap);
         }
-        //printf("cheri_getsealed :  ");
     }
     return valid_cap;
 }
 
 void set_cap_info(void *stack, size_t size) {
+
     uintcap_t *stack_ptr = (uintcap_t *)(stack);
     uintcap_t *ptr = (uintcap_t *)(stack);
+    int elem_len = sizeof(uintcap_t *) * 2; // cap = sizeof(void *)*2
 
+#if DEBUG
     printf("size: %d\n", size);
-    printf("sizeof(uintcap_t *): %d\n", sizeof(uintcap_t *));
-    int nums = size / sizeof(uintcap_t *);
-    printf("nums: %d\n", nums);
+    printf("elem_len: %d\n", elem_len);
+    printf("check cap nums: %d\n", size / elem_len);
+#endif
 
     int sum_cap = 0;
-    for (size_t i = 0; i < size / (sizeof(uintcap_t *)*2); ++i) {
+    for (size_t i = 0; i < size / elem_len; ++i) {
+        
         if (stack_cap_tags[i] == 1) {
             unsigned long here_pos = (unsigned long)stack + i*sizeof(void *)*2;
             //printf("here_pos: %lx\n", here_pos);
@@ -118,7 +144,7 @@ void thread_resume(void *argv) {
 	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
 
 #if __FreeBSD__
-	if(sysctlbyname("security.cheri.sealcap", &sealcap, &sealcap_size, NULL, 0) < 0) {
+	if(sysctlbyname("security.cheri.sealcap", &global_sealcap, &sealcap_size, NULL, 0) < 0) {
 		printf("sysctlbyname(security.cheri.sealcap)\n");
 		while(1) ;
 	}
@@ -221,6 +247,10 @@ void context_test(int no) {
     print_stack_info();
 	int ret = -1;
 	pthread_t timerid;
+
+    printf("22222 pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
+    printf("22222 threadid: %d\n", threadid);
+
     if(no == 1)
 	ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 
     if(no == 2)
@@ -230,5 +260,10 @@ void context_test(int no) {
 	{
 		printf("pthread_create failed!ret=%d err=%s\n", ret, strerror(ret));
 	}
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGALRM);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
 }
 

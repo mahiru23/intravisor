@@ -317,7 +317,9 @@ int get_dirty_page_num(unsigned long FILE_SIZE, int pages, char *addr) {
         return -1;
     }
     for (int i = 0; i < pages; i++) {
+        //printf("vec[%d]: %d\n", i, vec[i]);
         if (vec[i] & MINCORE_MODIFIED) {
+            
             dirty_pages++;
         }
     }
@@ -441,68 +443,50 @@ void mmap_file_test(struct c_thread *ct, int resume_flag) {
     unsigned long FILE_SIZE = ct->stack_size;
     int pages = (FILE_SIZE) / PAGE_SIZE;
 
-
-    printf("ct->stack: 0x%lx\n", (unsigned long)(ct->stack));
+    /*printf("ct->stack: 0x%lx\n", (unsigned long)(ct->stack));
     printf("ct->stack_size: 0x%lx\n", ct->stack_size);
     printf("FILE_SIZE: %d\n", FILE_SIZE);
     printf("pages: %d\n", pages);
 
-    // 创建一个文件用于映射
     fd = open("mapped_file", O_RDWR | O_CREAT , (mode_t)0600);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
     }
-    /*if (lseek(fd, FILE_SIZE - 1, SEEK_SET) == -1) {
-        close(fd);
-        perror("lseek");
-        exit(EXIT_FAILURE);
-    }*/
+
     if (write(fd, ct->stack, ct->stack_size) == -1) {
         perror("ct->stack");
         close(fd);
         exit(EXIT_FAILURE);
     }
+    close(fd);*/
 
 
-    printf("flag 0\n");
-
-    // 映射文件到内存
     //addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, 0);
-    addr = mmap(ct->stack, ct->stack_size, PROT_NONE | PROT_MAX(PROT_READ | PROT_WRITE), MAP_SHARED | MAP_FIXED, fd, 0);
+    //addr = mmap(ct->stack, ct->stack_size, _PROT_ALL | PROT_MAX(_PROT_ALL), MAP_SHARED | MAP_FIXED, fd, 0);
+    addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
     if (addr == MAP_FAILED) {
-        close(fd);
+        //close(fd);
         perror("mmap");
         exit(EXIT_FAILURE);
     }
 
     printf("addr: %p\n", addr);
-
+    
     if(resume_flag == 0) {
-
         int fd2 = open("stack_dump.bin", O_RDWR | O_CREAT | O_TRUNC, 0777);
         if (fd2 == -1) {
             perror("open");
             exit(EXIT_FAILURE);
         }
-        /*if (lseek(fd2, FILE_SIZE - 1, SEEK_SET) == -1) {
-            close(fd2);
-            perror("lseek");
-            exit(EXIT_FAILURE);
-        }*/
-
         if (write(fd2, ct->stack, ct->stack_size) == -1) {
             perror("ct->stack");
             close(fd);
             exit(EXIT_FAILURE);
         }
-    
         printf("create file stack_dump.bin\n");
-        
         close(fd2);
     }
-
-
 }
 
 

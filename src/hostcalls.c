@@ -410,20 +410,34 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	if(replica_flag == 1) {
 		replica_flag = 2;
 		printf("replica_flag == 1\n");
-		pthread_t temp_pthread_id;
+		/*pthread_t temp_pthread_id;
 		int retx = pthread_create(&temp_pthread_id, NULL, (void *)cvm_dumping, (void *)(17)); 
 		if(ret != 0)
 		{
 			printf("pthread_create=%d err=%s\n", ret, strerror(retx));
-		}
+		}*/
 		/*void *cret;
 		pthread_join(temp_pthread_id, &cret);*/
+		if (kill(getpid(), SIGALRM) == -1) {
+			perror("kill error");
+			return 1;
+		}
+
 	}
 
 	pthread_mutex_unlock(&ct->sbox->ct_lock);
-	while(replica_flag == 2) {
-		;
+
+	pthread_mutex_lock(&mutex);
+	while (replica_flag == 2 || is_paused) {
+		// 等待条件变量，即暂停状态解除
+		pthread_cond_wait(&cond, &mutex);
 	}
+	// 解锁
+	pthread_mutex_unlock(&mutex);
+
+	/*while(replica_flag == 2) {
+		sleep(1);
+	}*/
 
 	printf("replica_flag loop end\n");
 

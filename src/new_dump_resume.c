@@ -4,7 +4,24 @@
 
 int replica_flag = 0;
 void * __capability global_cap_ptr;
-int stack_cap_tags[65536]; // max_stack_size = 0x100000
+bool stack_cap_tags[32768]; // max_stack_size = 0x80000
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int is_paused = 0;
+
+void pause_thread() {
+    pthread_mutex_lock(&mutex);
+    is_paused = 1;
+    pthread_mutex_unlock(&mutex);
+}
+
+void resume_thread() {
+    pthread_mutex_lock(&mutex);
+    is_paused = 0;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
+}
 
 
 int is_capability(void *ptr) {
@@ -51,12 +68,31 @@ int write_to_stackfile(int fd, void *addr, int size, int page) {
         close(fd);
         exit(EXIT_FAILURE);
     }
+
+    /*------------------------------------------*/
+    /*remap*/
+
+    off_t page_offset = 0; 
+    if (munmap(addr + page_offset, PAGE_SIZE) == -1) {
+        perror("munmap page error");
+        close(fd);
+        return EXIT_FAILURE;
+    }
+
+    char *new_addr = mmap(addr + page_offset, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, page * PAGE_SIZE);
+    if (new_addr == MAP_FAILED) {
+        perror("mmap");
+        close(fd);
+        return EXIT_FAILURE;
+    }
+
+    /*------------------------------------------*/
     return 0;
 }
 
 void stack_dirty_page_update(struct c_thread *ct) {
 
-    int fd = open("stack_dump.bin", O_WRONLY, 0777);
+    int fd = open("stack_dump.bin", O_RDWR, 0777);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -82,10 +118,25 @@ void stack_dirty_page_update(struct c_thread *ct) {
         }
     }
 
-    if (msync(ct->stack, ct->stack_size, MS_SYNC) == -1) {
+    /*if (msync(ct->stack, ct->stack_size, MS_SYNC) == -1) {
         perror("msync");
         exit(EXIT_FAILURE);
-    }
+    }*/
+
+    get_dirty_page_num(ct->stack_size, pages, ct->stack);
+
+	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
+
+#if __FreeBSD__
+	if(sysctlbyname("security.cheri.sealcap", &global_sealcap, &sealcap_size, NULL, 0) < 0) {
+		printf("sysctlbyname(security.cheri.sealcap)\n");
+		while(1) ;
+	}
+#else
+	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
+#endif
+
+    set_cap_info(ct->stack, ct->stack_size);
 
     get_dirty_page_num(ct->stack_size, pages, ct->stack);
 
@@ -97,7 +148,9 @@ void stack_dirty_page_update(struct c_thread *ct) {
 
 // replica_flag is a state machine here
 // TODO: but it seems not good, so disable suspend & resume here
-int cvm_dumping(int cid) {
+int cvm_dumping() {
+
+    /*
 #if DEBUG
         printf("cvm_dumping, cid: %d\n", cid);
 #endif
@@ -105,8 +158,8 @@ int cvm_dumping(int cid) {
     // 
     if(cid == 17) {
         pthread_detach(pthread_self());
-    }
-    cid = 16;
+    }*/
+    int cid = 16;
 
     struct c_thread *ct = cvms[cid].threads;
 
@@ -122,7 +175,22 @@ int cvm_dumping(int cid) {
         CHERI_CAP_PRINT(cap_ptr);
 #endif
 
+    printf("enter x test\n");
+
+    printf("pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
+    printf("threadid: %d\n", threadid);
+
+    /*for(int x=0;x<20;x++) {
+        get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
+
+        printf("test x: %d\n", x);
+        sleep(1);
+
+        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    }*/
+
     //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
+    pause_thread();
 
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
@@ -132,9 +200,9 @@ int cvm_dumping(int cid) {
 #if DEBUG
     printf("get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);, cid: %d\n", cid);
     CHERI_CAP_PRINT(ctx.frame.tf_ra);
-    CHERI_CAP_PRINT(ctx.frame.tf_sp);
+    CHERI_CAP_PRINT(ctx.frame.tf_sepc);
     printf("replica_flag: %d\n", replica_flag);
-    printf("pc_addr: %d\n", pc_addr);
+    printf("pc_addr: %lx\n", pc_addr);
     printf("lower_bound: %lx\n", lower_bound);
     printf("upper_bound: %lx\n", upper_bound);
 #endif
@@ -148,7 +216,8 @@ int cvm_dumping(int cid) {
     else { // in kernel
         replica_flag = 1;
         pthread_mutex_unlock(&ct->sbox->ct_lock);
-        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        resume_thread();
         return 0;
     }
 
@@ -157,8 +226,11 @@ int cvm_dumping(int cid) {
     uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
     for(int i=0;i<33;i++) {
         void *__capability elem = (void *__capability)(ptr[i]); // copyoutcap with tag
+#if DEBUG
         printf("[%d]", i);
         CHERI_CAP_PRINT(elem);
+#endif
+
         tag_array[i] = cheri_gettag(elem);
     }
 
@@ -204,7 +276,7 @@ int cvm_dumping(int cid) {
         perror("open");
         exit(EXIT_FAILURE);
     }
-    if (write(fd3, stack_cap_tags, 65536*sizeof(int)) == -1) {
+    if (write(fd3, stack_cap_tags, sizeof(stack_cap_tags)) == -1) {
         perror("write stack_cap_tags");
         close(fd);
         exit(EXIT_FAILURE);
@@ -214,8 +286,9 @@ int cvm_dumping(int cid) {
     host_cap_file_dump();
 
 #if DEBUG
+    //test suspend
     printf("test suspend start\n");
-    //sleep(5);//test suspend
+    //sleep(3);
     printf("test suspend end\n");
 #endif
     
@@ -225,11 +298,9 @@ int cvm_dumping(int cid) {
 
     pthread_mutex_unlock(&ct->sbox->ct_lock);
     //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    resume_thread();
 
-    /*while(1) {
-        ;
-    }
-*/
+
     //exit(-1);
 
 

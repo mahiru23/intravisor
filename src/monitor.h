@@ -492,6 +492,11 @@ extern void * __capability global_cap_ptr;
 #define CAPTURE_SNAPSHOT -6
 int cvm_dumping(int cid);
 
-extern int stack_cap_tags[65536];
+extern bool stack_cap_tags[32768];
 
+extern void *__capability global_sealcap;
+
+extern pthread_mutex_t mutex;
+extern pthread_cond_t cond;
+extern int is_paused;
 

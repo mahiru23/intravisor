@@ -66,6 +66,7 @@ void *init_thread(void *arg) {
 	printf("%p\n", me->stack);
 	printf("%p\n", getSP());
 	CHERI_CAP_PRINT(me->c_tp);
+	printf("mtp: %p\n", me->m_tp);
 	printf("%p\n", me->c_tp);
 	printf("%lx\n", me->c_tp);
 	/*
