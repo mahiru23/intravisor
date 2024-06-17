@@ -500,3 +500,14 @@ extern pthread_mutex_t mutex;
 extern pthread_cond_t cond;
 extern int is_paused;
 
+
+
+/*identify state machine*/
+extern bool master_valid_flag;
+extern bool backup_valid_flag;
+extern bool is_master; // identifier, 0 MASTER, 1 BACKUP
+
+
+#define DISCONNECTION_TIMEOUT 20
+
+

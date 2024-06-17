@@ -150,47 +150,22 @@ void stack_dirty_page_update(struct c_thread *ct) {
 // TODO: but it seems not good, so disable suspend & resume here
 int cvm_dumping() {
 
-    /*
-#if DEBUG
-        printf("cvm_dumping, cid: %d\n", cid);
-#endif
-
-    // 
-    if(cid == 17) {
-        pthread_detach(pthread_self());
-    }*/
-    int cid = 16;
-
+    int cid = 16; // todo: global or arg
     struct c_thread *ct = cvms[cid].threads;
-
-    // thread_lock
-    pthread_mutex_lock(&ct->sbox->ct_lock);
-    // proc/thread struct lock with extra syscall
-    printf("pthread_mutex_lock, cid: %d\n", cid);
-
+    pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+
 #if DEBUG
-        CHERI_CAP_PRINT(cap_ptr);
-#endif
-
-    printf("enter x test\n");
-
+    CHERI_CAP_PRINT(cap_ptr);
+    printf("pthread_mutex_lock, cid: %d\n", cid);
     printf("pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
     printf("threadid: %d\n", threadid);
+#endif
 
-    /*for(int x=0;x<20;x++) {
-        get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
-
-        printf("test x: %d\n", x);
-        sleep(1);
-
-        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-    }*/
-
-    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
     pause_thread();
+    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
@@ -208,10 +183,10 @@ int cvm_dumping() {
 #endif
 
     if(replica_flag == 2) { // in intravisor userspace
-        ;
+        heartbeat();
     }
     else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
-        ;
+        heartbeat();
     }
     else { // in kernel
         replica_flag = 1;
@@ -257,18 +232,6 @@ int cvm_dumping() {
 
     get_cap_info(ct->stack, ct->stack_size);
 
-    /*int fd2 = open("stack_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
-    if (fd2 == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-    if (write(fd2, ct->stack, ct->stack_size) == -1) {
-        perror("write ct->stack");
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
-    close(fd2); */
-
     stack_dirty_page_update(ct);
 
     int fd3 = open("stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -284,6 +247,12 @@ int cvm_dumping() {
     close(fd3); 
 
     host_cap_file_dump();
+
+    if(is_master & backup_valid_flag) {
+        send_to_backup();
+    }
+
+
 
 #if DEBUG
     //test suspend

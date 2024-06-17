@@ -405,23 +405,9 @@ void *init_thread(void *arg) {
 		context_test(2);
 
 		while(1) {
-			sleep(15);
+			sleep(10);
 			
 		}
-		//cvm_resume(me);
-		//read_memory_from_fd(me, v1, v2, v3);
-
-		//test_resume_jump(me->sbox->box_caps.sealed_ret_from_mon, me->sbox->box_caps.sealed_datacap, me->sbox->box_caps.dcap, v1, v2, v3);
-
-		
-
-
-
-
-		//cmv_ctp(me->c_tp);
-		/*cinv_resume(comp_to_mon(v3, me->sbox),	//local_cap_store
-			(void *) &cinv_args);*/
-		//cvm_resume(me);
 	}
 
 
@@ -1041,6 +1027,7 @@ int main(int argc, char *argv[]) {
 			printf("\t-c --debug_calls\t trace hostcalls at the host side, default is %d\n", debug_calls);
 			printf("\t-t --timer\tenable oneshot timer threads, default: %d\n", timers);
 			printf("\t--resume \tresume the cVM from dump file");
+			printf("\t-n --network\tnetwork test");
 			exit(0);
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
@@ -1060,6 +1047,20 @@ int main(int argc, char *argv[]) {
 			yaml_cfg = *++argv;
 			dump_flags = 1;
 			break;
+		} else if(strcmp("-n", *argv) == 0 || strcmp("--network", *argv) == 0) {
+			skip_argc += 2;
+			test_network_client();
+			is_master = true;
+			master_valid_flag = true;
+			return 0;
+			//disk_img = *++argv;
+		} else if(strcmp("-l", *argv) == 0 || strcmp("--listen", *argv) == 0) {
+			skip_argc += 2;
+			is_master = false;
+			backup_valid_flag = true;
+			test_network_server();
+			return 0;
+			//disk_img = *++argv;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {
 
 			break;	//argv now points to the beginning of args
