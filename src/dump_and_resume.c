@@ -346,32 +346,6 @@ int cvm_dumping(struct c_thread *ct, void * __capability pcc, void * __capabilit
     }
 }*/
 
-long remaining_file_size(int fd) {
-    // 获取当前文件指针的位置
-    off_t current_pos = lseek(fd, 0, SEEK_CUR);
-    if (current_pos == -1) {
-        perror("Failed to get current file position");
-        return -1;
-    }
-
-    // 将文件指针移到文件尾部
-    off_t end_pos = lseek(fd, 0, SEEK_END);
-    if (end_pos == -1) {
-        perror("Failed to seek to end of file");
-        return -1;
-    }
-
-    // 计算剩余长度
-    long remaining_size = end_pos - current_pos;
-
-    // 将文件指针移回原来的位置
-    if (lseek(fd, current_pos, SEEK_SET) == -1) {
-        perror("Failed to seek back to original position");
-        return -1;
-    }
-
-    return remaining_size;
-}
 
 void read_context_from_fd(int fd, void *context, size_t len) {
     printf("remain len: %p\n", remaining_file_size(fd));

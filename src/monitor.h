@@ -505,9 +505,23 @@ extern int is_paused;
 /*identify state machine*/
 extern bool master_valid_flag;
 extern bool backup_valid_flag;
-extern bool is_master; // identifier, 0 MASTER, 1 BACKUP
+extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
 
-#define DISCONNECTION_TIMEOUT 20
+#define HEARTBEAT_TIMEOUT 5
+#define DISCONNECTION_TIMEOUT 30
+//int send_to_backup();
+#define PAGE_NUM STACK_SIZE/PAGE_SIZE
+extern char dirty_page_map[PAGE_NUM];
 
+extern int master_checkpoint;
+extern int backup_checkpoint;
+
+struct files_detail {
+    int context_len;
+    int capfiles_len;
+    int dirty_page_map_len;
+    int stack_page_len;
+    int stack_cap_tags_len;
+};
 

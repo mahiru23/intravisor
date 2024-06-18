@@ -90,6 +90,8 @@ int write_to_stackfile(int fd, void *addr, int size, int page) {
     return 0;
 }
 
+char dirty_page_map[PAGE_NUM];
+
 void stack_dirty_page_update(struct c_thread *ct) {
 
     int fd = open("stack_dump.bin", O_RDWR, 0777);
@@ -102,21 +104,23 @@ void stack_dirty_page_update(struct c_thread *ct) {
 
     get_dirty_page_num(ct->stack_size, pages, ct->stack);
 
-    char *vec = (char *)malloc(pages);
+    /*char *vec = (char *)malloc(pages);
     if (vec == NULL) {
         perror("malloc");
         exit(EXIT_FAILURE);
-    }
-    if (mincore(ct->stack, ct->stack_size, vec) == -1) {
+    }*/
+    if (mincore(ct->stack, ct->stack_size, dirty_page_map) == -1) {
         perror("mincore");
-        free(vec);
+        //free(vec);
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < pages; i++) {
-        if (vec[i] & MINCORE_MODIFIED) {
+        if (dirty_page_map[i] & MINCORE_MODIFIED) {
             write_to_stackfile(fd, ct->stack+i*PAGE_SIZE, PAGE_SIZE, i);
         }
     }
+
+    //free(vec);
 
     /*if (msync(ct->stack, ct->stack_size, MS_SYNC) == -1) {
         perror("msync");
@@ -147,7 +151,7 @@ void stack_dirty_page_update(struct c_thread *ct) {
 
 
 // replica_flag is a state machine here
-// TODO: but it seems not good, so disable suspend & resume here
+// TODO: but it seems not good, so disable suspend & resume syscall here
 int cvm_dumping() {
 
     int cid = 16; // todo: global or arg
@@ -183,10 +187,10 @@ int cvm_dumping() {
 #endif
 
     if(replica_flag == 2) { // in intravisor userspace
-        heartbeat();
+        heartbeat(-1);
     }
     else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
-        heartbeat();
+        heartbeat(-1);
     }
     else { // in kernel
         replica_flag = 1;
@@ -229,6 +233,7 @@ int cvm_dumping() {
 #if DEBUG
     printf("thread_context end\n");
 #endif
+    int dirty_page_num = get_dirty_page_num(ct->stack_size, PAGE_NUM, ct->stack);
 
     get_cap_info(ct->stack, ct->stack_size);
 
@@ -249,10 +254,8 @@ int cvm_dumping() {
     host_cap_file_dump();
 
     if(is_master & backup_valid_flag) {
-        send_to_backup();
+        master_to_backup(ct, dirty_page_num);
     }
-
-
 
 #if DEBUG
     //test suspend

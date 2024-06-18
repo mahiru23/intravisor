@@ -296,3 +296,138 @@ void __capability *mmap_cvm_data(unsigned long addr, size_t len, int prot, int f
 int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, void *(*start_routine)(void *), void *arg) {
 
 }
+
+/*----------------------------------------------------------*/
+
+int master_failure_handler() {
+    printf("master_failure_handler: disable backup\n");
+    master_valid_flag = true;
+    backup_valid_flag = false;
+    is_master = true;
+    return 0;
+}
+
+int backup_failure_handler() {
+    printf("backup_failure_handler: backup -> master\n");
+    master_valid_flag = true;
+    backup_valid_flag = false;
+    is_master = true;
+    return 0;
+}
+
+// send is unreliable
+int send_all(int sock, void *buf, int size) {
+    int total_bytes_sent = 0;
+    int bytes_left = size;
+    while (total_bytes_sent < size) {
+        ssize_t bytes_sent = send(sock, buf + total_bytes_sent, bytes_left, MSG_NOSIGNAL);
+        if (bytes_sent < 0) {
+            perror("send failed");
+            return -1;
+        }
+        total_bytes_sent += bytes_sent;
+        bytes_left -= bytes_sent;
+    }
+    return total_bytes_sent;
+}
+
+// read is unreliable
+int recv_all(int sock, void *buf, int size) {
+    int total_bytes_recv = 0;
+    int bytes_left = size;
+    while (total_bytes_recv < size) {
+        ssize_t bytes_recv = recv(sock, buf + total_bytes_recv, bytes_left, 0);
+        if (bytes_recv < 0) {
+            perror("recv failed");
+            return -1;
+        }
+        total_bytes_recv += bytes_recv;
+        bytes_left -= bytes_recv;
+    }
+    return total_bytes_recv;
+}
+
+off_t get_filesize(const char *filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        perror("open error");
+        return -1;
+    }
+    off_t size = lseek(fd, 0, SEEK_END);
+    if (size == -1) {
+        perror("lseek error");
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    return size;
+}
+
+
+long remaining_file_size(int fd) {
+    off_t current_pos = lseek(fd, 0, SEEK_CUR);
+    if (current_pos == -1) {
+        perror("Failed to get current file position");
+        return -1;
+    }
+    off_t end_pos = lseek(fd, 0, SEEK_END);
+    if (end_pos == -1) {
+        perror("Failed to seek to end of file");
+        return -1;
+    }
+    long remaining_size = end_pos - current_pos;
+    if (lseek(fd, current_pos, SEEK_SET) == -1) {
+        perror("Failed to seek back to original position");
+        return -1;
+    }
+    return remaining_size;
+}
+
+int snapshot_to_file(const char *file_name, void *addr, int size, int offset) {
+    int fd = open(file_name, O_WRONLY | O_CREAT, 0777);
+    if (fd == -1) {
+        perror("snapshot_to_file: open error");
+        exit(EXIT_FAILURE);
+    }
+
+    if (lseek(fd, offset, SEEK_SET) == -1) {
+        perror("snapshot_to_file: lseek error");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (write(fd, addr, size) == -1) {
+        perror("snapshot_to_file: write error");
+        perror(file_name);
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    close(fd);
+    return size;
+}
+
+int get_dirty_page_num(unsigned long FILE_SIZE, int pages, char *addr) {
+    int dirty_pages = 0;
+    char *vec = (char *)malloc(pages);
+    if (vec == NULL) {
+        perror("malloc");
+        return -1;
+    }
+    if (mincore(addr, FILE_SIZE, vec) == -1) {
+        perror("mincore");
+        free(vec);
+        return -1;
+    }
+    for (int i = 0; i < pages; i++) {
+        if (vec[i] & MINCORE_MODIFIED) {
+            dirty_pages++;
+        }
+    }
+    //printf("Total dirty pages: %d\n", dirty_pages);
+    free(vec);
+    return dirty_pages;
+}
+
+
+
+

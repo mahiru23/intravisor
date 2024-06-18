@@ -1032,6 +1032,7 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
 			printf("Using yaml.cfg = %s\n", yaml_cfg);
+			master_network_setup();
 			break;
 		} else if(strcmp("-d", *argv) == 0 || strcmp("--disk", *argv) == 0) {
 			skip_argc += 2;
@@ -1058,9 +1059,11 @@ int main(int argc, char *argv[]) {
 			skip_argc += 2;
 			is_master = false;
 			backup_valid_flag = true;
-			test_network_server();
-			return 0;
-			//disk_img = *++argv;
+			//test_network_server();
+			backup_network_setup();
+			backup_server();
+			yaml_cfg = "musl-uni-hello.yaml";
+			dump_flags = 1;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {
 
 			break;	//argv now points to the beginning of args
@@ -1110,12 +1113,8 @@ int main(int argc, char *argv[]) {
 
 	
 	if(dump_flags == 1) {
-		//reload_dump_file(dump_file);
 		printf("cvm_resume();\n");
 		resume_flag_x = 1;
-		//resume_flag_x
-		//cvm_resume();
-		//yaml_cfg = "native-hello.yaml";
 		parse_and_spawn_yaml(yaml_cfg, 0, 1);
 		
 		return 0;

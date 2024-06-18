@@ -153,33 +153,6 @@ void check_dirty_pages(struct c_thread *ct) {
 //#define FILE_SIZE 0x40000000  // 文件大小：1GB
 //#define PAGE_SIZE 4096         // 页大小：4KB
 
-int get_dirty_page_num(unsigned long FILE_SIZE, int pages, char *addr) {
-    int dirty_pages = 0;
-
-    //get_thread_context();
-    //get_thread_context();
-
-    char *vec = (char *)malloc(pages);
-    if (vec == NULL) {
-        perror("malloc");
-        return -1;
-    }
-    if (mincore(addr, FILE_SIZE, vec) == -1) {
-        perror("mincore");
-        free(vec);
-        return -1;
-    }
-    for (int i = 0; i < pages; i++) {
-        //printf("vec[%d]: %d\n", i, vec[i]);
-        if (vec[i] & MINCORE_MODIFIED) {
-            
-            dirty_pages++;
-        }
-    }
-    printf("Total dirty pages: %d\n", dirty_pages);
-    free(vec);
-    return dirty_pages;
-}
 
 
 
