@@ -410,14 +410,6 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	if(replica_flag == 1) {
 		replica_flag = 2;
 		printf("replica_flag == 1\n");
-		/*pthread_t temp_pthread_id;
-		int retx = pthread_create(&temp_pthread_id, NULL, (void *)cvm_dumping, (void *)(17)); 
-		if(ret != 0)
-		{
-			printf("pthread_create=%d err=%s\n", ret, strerror(retx));
-		}*/
-		/*void *cret;
-		pthread_join(temp_pthread_id, &cret);*/
 		if (kill(getpid(), SIGALRM) == -1) {
 			perror("kill error");
 			return 1;
@@ -429,10 +421,8 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 
 	pthread_mutex_lock(&mutex);
 	while (replica_flag == 2 || is_paused) {
-		// 等待条件变量，即暂停状态解除
 		pthread_cond_wait(&cond, &mutex);
 	}
-	// 解锁
 	pthread_mutex_unlock(&mutex);
 
 	/*while(replica_flag == 2) {
@@ -443,11 +433,8 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 
 	switch (t5) {
 	case 1:
-		//printf("here is 1 hostcall\n");
 		wrap_write(ct->sbox->fd, (void *) comp_to_mon(a0, ct->sbox), a1);
 //                      wrap_write(ct->sbox->fd, a0, a1);
-		//test_resume_jump(a0, a1);
-		//resumetest();
 		break;
 
 	case 30:
@@ -473,50 +460,6 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 
 	case 34:
 		printf("here is 34 hostcall\n");
-		//mmaptest(ct);
-		//check_dirty_pages(ct);
-		//exit(-1);
-		
-		
-
-		void *__capability newa0 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
-		void *__capability newa1 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
-		void *__capability newa2 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
-		void *__capability newa3 = codecap_create((void *) ct->sbox->cmp_begin, (void *) ct->sbox->cmp_end, ct->sbox->cr);
-
-		newa0 = cheri_setaddress(newa0, (unsigned long)a0);
-		newa1 = cheri_setaddress(newa1, (unsigned long)a1);
-		newa2 = cheri_setaddress(newa2, (unsigned long)a2);
-		newa3 = cheri_setaddress(newa3, (unsigned long)comp_to_mon(a3, ct->sbox));
-
-		void *__capability sealed_a0 = cheri_seal(newa0, ct->sbox->box_caps.sealcap);
-		void *__capability sealed_a1 = cheri_seal(newa1, ct->sbox->box_caps.sealcap);
-		void *__capability sealed_a2 = cheri_seal(newa2, ct->sbox->box_caps.sealcap);
-		void *__capability sealed_a3 = cheri_seal(newa3, ct->sbox->box_caps.sealcap);
-
-		CHERI_CAP_PRINT(sealed_a0);
-		CHERI_CAP_PRINT(sealed_a1);
-		CHERI_CAP_PRINT(sealed_a2);
-		CHERI_CAP_PRINT(sealed_a3);
-
-		//cmv_csp(newcsp);
-
-		//mv_sp(a3);
-
-		//cheri_seal(ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap);
-
-		
-//mv_sp((unsigned long)comp_to_mon(a3, ct->sbox));
-//cmv_csp(sealed_a3);
-
-//printf("sp hostcall: %p\n", getSP());
-//printf("csp hostcall: %p\n", getCSP());
-		//test_resume_jump(ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap, ct->sbox->box_caps.dcap, a4, a5, a3);
-//test_resume_jump(newa0, newa1, newa2, a4, a5, a3);
-		//mv_sp(a3);
-
-		//exit(-1);
-		//cvm_dumping(ct,ct->sbox->box_caps.sealed_ret_from_mon, ct->sbox->box_caps.sealed_datacap, ct->sbox->box_caps.dcap, a4, a5, a3);
 		break;
 
 

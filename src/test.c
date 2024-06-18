@@ -149,13 +149,6 @@ void check_dirty_pages(struct c_thread *ct) {
 }
 
 
-
-//#define FILE_SIZE 0x40000000  // 文件大小：1GB
-//#define PAGE_SIZE 4096         // 页大小：4KB
-
-
-
-
 void mmap_file_test(struct c_thread *ct, int resume_flag) {
     int fd;
     char *addr;

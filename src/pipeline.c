@@ -198,7 +198,9 @@ int master_network_setup() {
         close(sock);
         exit(EXIT_FAILURE);
     }
-
+    
+    is_master = true;
+    master_valid_flag = true;
     backup_valid_flag = true;
     global_socket = sock;
 
@@ -350,6 +352,8 @@ int backup_network_setup() {
         exit(EXIT_FAILURE);
     }
 
+    is_master = false;
+    backup_valid_flag = true;
     master_valid_flag = true;
     global_socket = new_socket;
 

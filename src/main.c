@@ -376,41 +376,27 @@ void *init_thread(void *arg) {
 
 	if(resume_flag_x == 0) {
 		printf("resume_flag_x == 0\n");
-		unsigned long v1;
-		unsigned long v2;
-		unsigned long v3;
-		//cvm_resume(me, &v1, &v2, &v3);
-
-		printf("\n---------------------------------------------\n\n");
-
-
 		threadid = pthread_getthreadid_np();
 
 		context_test(1);
-
 
 		cmv_ctp(me->c_tp);
 		cinv(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
 	}
 	else {
-		//me->resume_flag = 0;
 		printf("resume_flag_x == 1\n");
 		threadid = pthread_getthreadid_np();
 
 		cinv_resume_aux(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
 		
-		printf("cinv_resume\n");
 		context_test(2);
 
 		while(1) {
 			sleep(10);
-			
 		}
 	}
-
-
 
 	printf("something is wrong, die at %d\n", __LINE__);
 	while(1) ;
@@ -1028,6 +1014,7 @@ int main(int argc, char *argv[]) {
 			printf("\t-t --timer\tenable oneshot timer threads, default: %d\n", timers);
 			printf("\t--resume \tresume the cVM from dump file");
 			printf("\t-n --network\tnetwork test");
+			printf("\t-b --backup\tstart backup server");
 			exit(0);
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
@@ -1054,8 +1041,7 @@ int main(int argc, char *argv[]) {
 			is_master = true;
 			master_valid_flag = true;
 			return 0;
-			//disk_img = *++argv;
-		} else if(strcmp("-l", *argv) == 0 || strcmp("--listen", *argv) == 0) {
+		} else if(strcmp("-b", *argv) == 0 || strcmp("--backup", *argv) == 0) {
 			skip_argc += 2;
 			is_master = false;
 			backup_valid_flag = true;
@@ -1110,13 +1096,11 @@ int main(int argc, char *argv[]) {
 
 	extern host_syscall_handler_adv(char *, void *__capability pcc, void *__capability ddc, void *__capability pcc2);
 	host_syscall_handler_adv("monitor", sealed_pcc, sealed_ddc, sealed_pcc2);
-
 	
 	if(dump_flags == 1) {
-		printf("cvm_resume();\n");
+		printf("cvm resume_flag\n");
 		resume_flag_x = 1;
 		parse_and_spawn_yaml(yaml_cfg, 0, 1);
-		
 		return 0;
 	}
 

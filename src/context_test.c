@@ -39,9 +39,9 @@ void thread_get_context(void *argv) {
     }
 
     struct itimerval timer;
-    timer.it_value.tv_sec = 7;
+    timer.it_value.tv_sec = HEARTBEAT_TIMEOUT;
     timer.it_value.tv_usec = 0;
-    timer.it_interval.tv_sec = 7;
+    timer.it_interval.tv_sec = HEARTBEAT_TIMEOUT;
     timer.it_interval.tv_usec = 0;
     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
         perror("setitimer");
@@ -169,12 +169,10 @@ void thread_resume(void *argv) {
         exit(EXIT_FAILURE);
     }
     close(fd);
-    #if DEBUG
-            printf("cvm_resume thread context end\n");
-    #endif
 
-    /*printf("%p\n", ctx.frame.tf_ra);
-    CHERI_CAP_PRINT(ctx.frame.tf_ra);*/
+#if DEBUG
+        printf("cvm_resume thread context end\n");
+#endif
 
     uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
     for(int i=0;i<33;i++) {
@@ -195,7 +193,7 @@ void thread_resume(void *argv) {
             printf("read registers end\n");
     #endif
 
-    sleep(5);
+    //sleep(5);
 
     host_cap_file_resume();
 
@@ -205,11 +203,6 @@ void thread_resume(void *argv) {
             CHERI_CAP_PRINT(cap_ptr); 
     #endif
 
-    /*void * stack_space_temp = malloc(ct->stack_size);
-    if(stack_space_temp == NULL) {
-        printf("stack_space_temp == NULL\n");
-    }*/
-
     int fd_stack = open("stack_dump.bin", O_RDWR);
     if (fd_stack == -1) {
         perror("open");
@@ -218,19 +211,18 @@ void thread_resume(void *argv) {
 
     char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
     if (addr == MAP_FAILED) {
-        printf("???????????????\n");
+        perror("mmap ct->stack error");
         close(fd_stack);
-        perror("mmap");
         exit(EXIT_FAILURE);
     }
 
     int fd3 = open("stack_cap_tags.bin", O_RDWR);
     if (fd3 == -1) {
-        perror("open");
+        perror("open stack_cap_tags.bin error");
         exit(EXIT_FAILURE);
     }
     if (read(fd3, stack_cap_tags, sizeof(stack_cap_tags)) == -1) {
-        perror("write");
+        perror("write stack_cap_tags");
         close(fd3);
         exit(EXIT_FAILURE);
     }
@@ -248,8 +240,8 @@ void context_test(int no) {
 	int ret = -1;
 	pthread_t timerid;
 
-    printf("22222 pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
-    printf("22222 threadid: %d\n", threadid);
+    /*printf("22222 pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
+    printf("22222 threadid: %d\n", threadid);*/
 
     if(no == 1)
 	ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 
