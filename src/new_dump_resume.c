@@ -169,7 +169,7 @@ int cvm_dumping() {
 #endif
 
     pause_thread();
-    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
+    get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
@@ -187,15 +187,19 @@ int cvm_dumping() {
 #endif
 
     if(replica_flag == 2) { // in intravisor userspace
-        heartbeat(-1);
+        //heartbeat(-1);
+        ;
     }
     else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
-        heartbeat(-1);
+        //heartbeat(-1);
+        ;
     }
     else { // in kernel
+        heartbeat(-1);
+        printf("in kernel\n");
         replica_flag = 1;
         pthread_mutex_unlock(&ct->sbox->ct_lock);
-        //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
         resume_thread();
         return 0;
     }
@@ -269,7 +273,7 @@ int cvm_dumping() {
     }
 
     pthread_mutex_unlock(&ct->sbox->ct_lock);
-    //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
     resume_thread();
 
 

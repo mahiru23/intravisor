@@ -509,7 +509,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
 
 #define HEARTBEAT_TIMEOUT 5
-#define DISCONNECTION_TIMEOUT 30
+#define DISCONNECTION_TIMEOUT 15
 //int send_to_backup();
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];

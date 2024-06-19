@@ -295,6 +295,8 @@ int master_to_backup(struct c_thread *ct, int dirty_page_num) {
         master_failure_handler();
     }
 
+    printf("master: backup_checkpoint: %d\n", backup_checkpoint);
+
     return 0;
 }
 
@@ -368,11 +370,13 @@ int backup_server() {
     int ret = 0;
     while(1) {
         ret = backup_server_impl();
+        printf("backup_server_impl loop, ret: %d\n", ret);
         if(ret == -1) {
             break;
         }
+
     }
-    printf("master crashed, backup -> master\n");
+    printf("master crashed, backup -> master\n\n\n\n\n");
     return 0;
 }
 
@@ -386,6 +390,7 @@ int backup_server_impl() {
     int snapshot_size;
     if(recv_all(global_socket, &snapshot_size, sizeof(snapshot_size)) == -1) {
         backup_failure_handler();
+        return -1;
     }
     if(snapshot_size == -1) { // heartbeat
         return 0;
@@ -400,6 +405,7 @@ int backup_server_impl() {
 
     if(recv_all(global_socket, packet, snapshot_size) == -1) {
         backup_failure_handler();
+        return -1;
     }
 
     struct files_detail packet_index;
@@ -421,11 +427,16 @@ int backup_server_impl() {
 
     pos += snapshot_to_file("stack_cap_tags.bin", (packet + pos), packet_index.stack_cap_tags_len, 0);
 
+    printf("save, over\n");
+
     // send checkpoint to master
     backup_checkpoint += 1;
     if(send_all(global_socket, &backup_checkpoint, sizeof(backup_checkpoint)) == -1) {
         backup_failure_handler();
+        return -1;
     }
+
+    printf("in backup, backup_checkpoint: %d\n", backup_checkpoint);
 
     return 0;
 }

@@ -1019,7 +1019,6 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
 			printf("Using yaml.cfg = %s\n", yaml_cfg);
-			master_network_setup();
 			break;
 		} else if(strcmp("-d", *argv) == 0 || strcmp("--disk", *argv) == 0) {
 			skip_argc += 2;
@@ -1036,11 +1035,11 @@ int main(int argc, char *argv[]) {
 			dump_flags = 1;
 			break;
 		} else if(strcmp("-n", *argv) == 0 || strcmp("--network", *argv) == 0) {
-			skip_argc += 2;
-			test_network_client();
+			skip_argc += 1;
+			//test_network_client();
 			is_master = true;
 			master_valid_flag = true;
-			return 0;
+			master_network_setup();
 		} else if(strcmp("-b", *argv) == 0 || strcmp("--backup", *argv) == 0) {
 			skip_argc += 2;
 			is_master = false;
@@ -1050,6 +1049,7 @@ int main(int argc, char *argv[]) {
 			backup_server();
 			yaml_cfg = "musl-uni-hello.yaml";
 			dump_flags = 1;
+			break;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {
 
 			break;	//argv now points to the beginning of args
