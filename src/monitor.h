@@ -499,6 +499,7 @@ extern void *__capability global_sealcap;
 extern pthread_mutex_t mutex;
 extern pthread_cond_t cond;
 extern int is_paused;
+extern pthread_t global_pid;
 
 
 

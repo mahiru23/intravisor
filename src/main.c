@@ -368,6 +368,8 @@ void *init_thread(void *arg) {
 	printf("---over--------------\n\n");
 	//exit(-1);
 
+	global_pid = pthread_self();
+
 	
     struct thread_snapshot ctx2;
     global_cap_ptr = cheri_ptrperm(&ctx2, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \

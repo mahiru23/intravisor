@@ -89,7 +89,7 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         PROC_SLOCK(p);
         thread_lock(t);
         thread_unsuspend_one_extra(p, t);
-        //thread_unlock(t);
+        thread_unlock(t);
         PROC_SUNLOCK(p);
         PROC_UNLOCK(p);
         log(LOG_WARNING, "Debug: thread is resume \n");

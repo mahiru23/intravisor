@@ -405,11 +405,11 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	__intcap_t ret = 0;
 //      struct lkl_disk *disk;
 
-	pthread_mutex_lock(&ct->sbox->ct_lock);
+	//pthread_mutex_lock(&ct->sbox->ct_lock);
 
 	if(replica_flag == 1) {
 		replica_flag = 2;
-		printf("replica_flag == 1\n");
+		printf("replica_flag =!!!= 1\n");
 		if (kill(getpid(), SIGALRM) == -1) {
 			perror("kill error");
 			return 1;
@@ -417,7 +417,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 
 	}
 
-	pthread_mutex_unlock(&ct->sbox->ct_lock);
+	//pthread_mutex_unlock(&ct->sbox->ct_lock);
 
 	pthread_mutex_lock(&mutex);
 	while (replica_flag == 2 || is_paused) {

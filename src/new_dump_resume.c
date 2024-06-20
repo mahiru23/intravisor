@@ -1,4 +1,5 @@
 #include "monitor.h"
+#include <pthread_np.h>
 
 #define DEBUG 1
 
@@ -9,6 +10,7 @@ bool stack_cap_tags[32768]; // max_stack_size = 0x80000
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int is_paused = 0;
+pthread_t global_pid;
 
 void pause_thread() {
     pthread_mutex_lock(&mutex);
@@ -148,15 +150,13 @@ void stack_dirty_page_update(struct c_thread *ct) {
     
 }
 
-
-
 // replica_flag is a state machine here
 // TODO: but it seems not good, so disable suspend & resume syscall here
 int cvm_dumping() {
 
     int cid = 16; // todo: global or arg
     struct c_thread *ct = cvms[cid].threads;
-    pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
+    //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
@@ -170,6 +170,13 @@ int cvm_dumping() {
 
     pause_thread();
     get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
+
+    //int v = pthread_suspend_np(global_pid);
+    int v=0;
+    if(v != 0) {
+        printf("pthread_suspend_np 1 : v: %d", v);
+    }
+    //pthread_suspend_np(global_pid);
 
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
@@ -198,8 +205,13 @@ int cvm_dumping() {
         heartbeat(-1);
         printf("in kernel\n");
         replica_flag = 1;
-        pthread_mutex_unlock(&ct->sbox->ct_lock);
+        //pthread_mutex_unlock(&ct->sbox->ct_lock);
         get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        //pthread_resume_np(global_pid);
+        //v = pthread_resume_np(global_pid);
+        if(v != 0) {
+            printf("pthread_resume_np 1 : v: %d", v);
+        }
         resume_thread();
         return 0;
     }
@@ -272,10 +284,15 @@ int cvm_dumping() {
         replica_flag = 0;
     }
 
-    pthread_mutex_unlock(&ct->sbox->ct_lock);
+    //pthread_mutex_unlock(&ct->sbox->ct_lock);
     get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-    resume_thread();
 
+    //pthread_resume_np(global_pid);
+    resume_thread();
+    //v = pthread_resume_np(global_pid);
+    if(v != 0) {
+        printf("pthread_resume_np 2 : v: %d", v);
+    }
 
     //exit(-1);
 

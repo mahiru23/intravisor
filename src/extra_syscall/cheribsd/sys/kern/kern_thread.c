@@ -1627,7 +1627,11 @@ thread_unsuspend(struct proc *p)
 void
 thread_unsuspend_one_extra(struct proc *p, struct thread *td)
 {
-	thread_unsuspend_one(td, p, true);
+	THREAD_LOCK_ASSERT(td, MA_OWNED);
+	KASSERT(TD_IS_SUSPENDED(td), ("Thread not suspended"));
+	TD_CLR_SUSPENDED(td);
+	td->td_flags &= ~TDF_ALLPROCSUSP;
+	p->p_suspcount--;
 }
 
 
