@@ -60,7 +60,8 @@ void thread_get_context(void *argv) {
     }
 }
 
-void *__capability invalid_to_valid(void *__capability elem, void *__capability valid_cap) {
+void *__capability invalid_to_valid(void *__capability elem) {
+    void *__capability valid_cap;
     int ptr_type = 0; //ddc: 0 , pcc: 1
     if((cheri_getperm(elem) & CHERI_PERM_EXECUTE) != 0) {
         //printf("pcc\n");
@@ -123,8 +124,16 @@ void set_cap_info(void *stack, size_t size) {
         if (stack_cap_tags[i] == 1) {
             unsigned long here_pos = (unsigned long)stack + i*sizeof(void *)*2;
             //printf("here_pos: %lx\n", here_pos);
+            if(cheri_getperm((void *__capability)(stack_ptr[i])) == 0) {
+                // valid_cap may crash here occasionally (but i dont know why)
+                // occasional error, unstable munmap, manually disable
+                printf("set_cap_info error: perm = 0 !!!!!\n\n\n\n\n");
+                continue;
+                //CHERI_CAP_PRINT((void *__capability)(stack_ptr[i]));
+                //exit(-1);
+            }
             void * __capability valid_cap;
-            valid_cap = invalid_to_valid((void *__capability)(stack_ptr[i]), valid_cap);
+            valid_cap = invalid_to_valid((void *__capability)(stack_ptr[i]));
             ptr[i] = valid_cap;
             sum_cap++;
         }
@@ -185,7 +194,7 @@ void thread_resume(void *argv) {
             continue;
         }
         void * __capability valid_cap;
-        valid_cap = invalid_to_valid(elem, valid_cap);
+        valid_cap = invalid_to_valid(elem);
         ptr[i] = valid_cap;
     }
 
@@ -239,9 +248,6 @@ void context_test(int no) {
     print_stack_info();
 	int ret = -1;
 	pthread_t timerid;
-
-    /*printf("22222 pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
-    printf("22222 threadid: %d\n", threadid);*/
 
     if(no == 1)
 	ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 

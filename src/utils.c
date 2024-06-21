@@ -425,7 +425,7 @@ int get_dirty_page_num(unsigned long FILE_SIZE, int pages, char *addr) {
             dirty_pages++;
         }
     }
-    //printf("Total dirty pages: %d\n", dirty_pages);
+    printf("Total dirty pages: %d\n", dirty_pages);
     free(vec);
     return dirty_pages;
 }

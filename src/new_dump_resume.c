@@ -41,6 +41,8 @@ void get_cap_info(void *stack, size_t size) {
     printf("check cap nums: %d\n", size / sizeof(uintcap_t *));
 #endif
 
+    memset(stack_cap_tags, 0, sizeof(stack_cap_tags));
+
     int sum_cap = 0;
     for (size_t i = 0; i < size / elem_len; ++i) {
         if (is_capability(stack_ptr[i])) {
@@ -111,6 +113,7 @@ void stack_dirty_page_update(struct c_thread *ct) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }*/
+    memset(dirty_page_map, 0, sizeof(dirty_page_map));
     if (mincore(ct->stack, ct->stack_size, dirty_page_map) == -1) {
         perror("mincore");
         //free(vec);
@@ -171,13 +174,6 @@ int cvm_dumping() {
     pause_thread();
     get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
-    //int v = pthread_suspend_np(global_pid);
-    int v=0;
-    if(v != 0) {
-        printf("pthread_suspend_np 1 : v: %d", v);
-    }
-    //pthread_suspend_np(global_pid);
-
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
     unsigned long lower_bound = comp_to_mon(ct->sbox->base, ct->sbox);
@@ -207,11 +203,6 @@ int cvm_dumping() {
         replica_flag = 1;
         //pthread_mutex_unlock(&ct->sbox->ct_lock);
         get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-        //pthread_resume_np(global_pid);
-        //v = pthread_resume_np(global_pid);
-        if(v != 0) {
-            printf("pthread_resume_np 1 : v: %d", v);
-        }
         resume_thread();
         return 0;
     }
@@ -267,6 +258,8 @@ int cvm_dumping() {
     }
     close(fd3); 
 
+    printf("stack_cap_tags end\n");
+
     host_cap_file_dump();
 
     if(is_master & backup_valid_flag) {
@@ -289,14 +282,6 @@ int cvm_dumping() {
 
     //pthread_resume_np(global_pid);
     resume_thread();
-    //v = pthread_resume_np(global_pid);
-    if(v != 0) {
-        printf("pthread_resume_np 2 : v: %d", v);
-    }
-
-    //exit(-1);
-
-
     return 0;
 }
 

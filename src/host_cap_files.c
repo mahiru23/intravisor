@@ -185,7 +185,10 @@ void host_cap_file_resume() {
         void *new_ptr = malloc(cap_files[i].size);
         read_context_from_fd(fd, new_ptr, cap_files[i].size);
         cap_files[i].ptr = new_ptr;
-        host_reg_cap(cap_files[i].ptr, cap_files[i].size, cap_files[i].loc);
+
+		// TODO: resume at origin position
+		if(cap_files[i].loc != NULL)
+        	host_reg_cap(cap_files[i].ptr, cap_files[i].size, cap_files[i].loc);
 	}
     close(fd); 
     pthread_mutex_unlock(&cf_store_lock);

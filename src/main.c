@@ -833,26 +833,32 @@ int parse_and_spawn_yaml(char *yaml_cfg, char libvirt, int resume_flag) {
 		exit(1);
 	}
 
-	for(struct capfile * f = state->clist; f; f = f->next) {
-                      printf("capfile: name=%s, data='%s', size=0x%lx, addr=0x%lx \n", f->name, f->data, f->size, f->addr);
-		if(f->addr) {
-			printf("capfiles with pre-defined addresses are not supported\n");
+	if(resume_flag == 0)
+	{
+		for(struct capfile * f = state->clist; f; f = f->next) {
+						printf("capfile: name=%s, data='%s', size=0x%lx, addr=0x%lx \n", f->name, f->data, f->size, f->addr);
+			if(f->addr) {
+				printf("capfiles with pre-defined addresses are not supported\n");
+			}
+
+			void *ptr = malloc(f->size);
+			if(!ptr) {
+				printf("cannot alloc %d bytes for %s key\n", f->size, f->name);
+				continue;
+			}
+
+			memset(ptr, 0, f->size);
+
+			//we support only text here
+			if(f->data) {
+				snprintf(ptr, f->size, "%s", f->data);
+			}
+
+			host_cap_file_adv(ptr, f->size, f->name);
 		}
-
-		void *ptr = malloc(f->size);
-		if(!ptr) {
-			printf("cannot alloc %d bytes for %s key\n", f->size, f->name);
-			continue;
-		}
-
-		memset(ptr, 0, f->size);
-
-		//we support only text here
-		if(f->data) {
-			snprintf(ptr, f->size, "%s", f->data);
-		}
-
-		host_cap_file_adv(ptr, f->size, f->name);
+	}
+	else {
+		printf("capfile: resume from snapshot\n");
 	}
 
 	for(struct cvm * f = state->flist; f; f = f->next) {
