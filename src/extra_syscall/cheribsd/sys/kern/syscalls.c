@@ -591,4 +591,6 @@ const char *syscallnames[] = {
 	"swapoff",			/* 582 = swapoff */
 	"get_thread_snapshot",			/* 583 = get_thread_snapshot */
 	"resume_from_snapshot",			/* 584 = resume_from_snapshot */
+	"msync_manual",			/* 585 = msync_manual */
+	
 };

@@ -591,4 +591,5 @@ const char *freebsd64_syscallnames[] = {
 	"freebsd64_swapoff",			/* 582 = freebsd64_swapoff */
 	"freebsd64_get_thread_snapshot",			/* 583 = freebsd64_get_thread_snapshot */
 	"freebsd64_resume_from_snapshot",			/* 584 = freebsd64_resume_from_snapshot */
+	"freebsd64_msync_manual",			/* 585 = freebsd64_msync_manual */
 };

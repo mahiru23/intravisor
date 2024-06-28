@@ -1515,6 +1515,267 @@ done2:
 	return (error);
 }
 
+
+
+int
+sys_msync_manual(struct thread *td, struct msync_manual_args *uap)
+{
+
+#if __has_feature(capabilities)
+	if (cap_covers_pages(uap->addr, uap->len) == 0)
+		return (EPROT);
+#endif
+
+	return (kern_msync_manual(td, (uintptr_t)(uintcap_t)uap->addr, uap->len,
+	    uap->vec));
+}
+
+int
+kern_msync_manual(struct thread *td, uintptr_t addr0, size_t len,
+    char * __capability vec)
+{
+	pmap_t pmap;
+	vm_map_t map;
+	vm_map_entry_t current, entry;
+	vm_object_t object;
+	vm_offset_t addr, cend, end, first_addr;
+	vm_paddr_t pa;
+	vm_page_t m;
+	vm_pindex_t pindex;
+	int error, lastvecindex, mincoreinfo, vecindex;
+	unsigned int timestamp;
+
+	/*
+	 * Make sure that the addresses presented are valid for user
+	 * mode.
+	 */
+	first_addr = addr = trunc_page(addr0);
+	end = round_page(addr0 + len);
+	map = &td->td_proc->p_vmspace->vm_map;
+	if (end > vm_map_max(map) || end < addr)
+		return (ENOMEM);
+
+	pmap = vmspace_pmap(td->td_proc->p_vmspace);
+
+	vm_map_lock_read(map);
+RestartScan:
+	timestamp = map->timestamp;
+
+	if (!vm_map_lookup_entry(map, addr, &entry)) {
+		vm_map_unlock_read(map);
+		return (ENOMEM);
+	}
+
+	/*
+	 * Do this on a map entry basis so that if the pages are not
+	 * in the current processes address space, we can easily look
+	 * up the pages elsewhere.
+	 */
+	lastvecindex = -1;
+	while (entry->start < end) {
+		/*
+		 * check for contiguity
+		 */
+		current = entry;
+		entry = vm_map_entry_succ(current);
+		if (current->end < end &&
+		    entry->start > current->end) {
+			vm_map_unlock_read(map);
+			return (ENOMEM);
+		}
+
+		/*
+		 * ignore submaps (for now) or null objects
+		 */
+		if ((current->eflags & MAP_ENTRY_IS_SUB_MAP) ||
+		    current->object.vm_object == NULL)
+			continue;
+
+		/*
+		 * limit this scan to the current map entry and the
+		 * limits for the mincore call
+		 */
+		if (addr < current->start)
+			addr = current->start;
+		cend = current->end;
+		if (cend > end)
+			cend = end;
+
+		for (; addr < cend; addr += PAGE_SIZE) {
+			/*
+			 * Check pmap first, it is likely faster, also
+			 * it can provide info as to whether we are the
+			 * one referencing or modifying the page.
+			 */
+			m = NULL;
+			object = NULL;
+retry:
+			pa = 0;
+			mincoreinfo = pmap_msync_manual(pmap, addr, &pa);
+			if (mincore_mapped) {
+				/*
+				 * We only care about this pmap's
+				 * mapping of the page, if any.
+				 */
+				;
+			} else if (pa != 0) {
+				/*
+				 * The page is mapped by this process but not
+				 * both accessed and modified.  It is also
+				 * managed.  Acquire the object lock so that
+				 * other mappings might be examined.  The page's
+				 * identity may change at any point before its
+				 * object lock is acquired, so re-validate if
+				 * necessary.
+				 */
+				m = PHYS_TO_VM_PAGE(pa);
+				while (object == NULL || m->object != object) {
+					if (object != NULL)
+						VM_OBJECT_WUNLOCK(object);
+					object = atomic_load_ptr(&m->object);
+					if (object == NULL)
+						goto retry;
+					VM_OBJECT_WLOCK(object);
+				}
+				if (pa != pmap_extract(pmap, addr))
+					goto retry;
+				KASSERT(vm_page_all_valid(m),
+				    ("mincore: page %p is mapped but invalid",
+				    m));
+			} else if (mincoreinfo == 0) {
+				/*
+				 * The page is not mapped by this process.  If
+				 * the object implements managed pages, then
+				 * determine if the page is resident so that
+				 * the mappings might be examined.
+				 */
+				if (current->object.vm_object != object) {
+					if (object != NULL)
+						VM_OBJECT_WUNLOCK(object);
+					object = current->object.vm_object;
+					VM_OBJECT_WLOCK(object);
+				}
+				if (object->type == OBJT_DEFAULT ||
+				    (object->flags & OBJ_SWAP) != 0 ||
+				    object->type == OBJT_VNODE) {
+					pindex = OFF_TO_IDX(current->offset +
+					    (addr - current->start));
+					m = vm_page_lookup(object, pindex);
+					if (m != NULL && vm_page_none_valid(m))
+						m = NULL;
+					if (m != NULL)
+						mincoreinfo = MINCORE_INCORE;
+				}
+			}
+			if (m != NULL) {
+				VM_OBJECT_ASSERT_WLOCKED(m->object);
+
+				/* Examine other mappings of the page. */
+				if (m->dirty == 0 && pmap_is_modified(m))
+					vm_page_dirty(m);
+				if (m->dirty != 0)
+					mincoreinfo |= MINCORE_MODIFIED_OTHER;
+
+				/*
+				 * The first test for PGA_REFERENCED is an
+				 * optimization.  The second test is
+				 * required because a concurrent pmap
+				 * operation could clear the last reference
+				 * and set PGA_REFERENCED before the call to
+				 * pmap_is_referenced(). 
+				 */
+				if ((m->a.flags & PGA_REFERENCED) != 0 ||
+				    pmap_is_referenced(m) ||
+				    (m->a.flags & PGA_REFERENCED) != 0)
+					mincoreinfo |= MINCORE_REFERENCED_OTHER;
+
+				/* Expose capability tracking information */
+				if ((m->a.flags & PGA_CAPSTORE) != 0)
+					mincoreinfo |= MINCORE_CAPSTORE;
+			}
+			if (object != NULL)
+				VM_OBJECT_WUNLOCK(object);
+
+			/*
+			 * subyte may page fault.  In case it needs to modify
+			 * the map, we release the lock.
+			 */
+			vm_map_unlock_read(map);
+
+			/*
+			 * calculate index into user supplied byte vector
+			 */
+			vecindex = atop(addr - first_addr);
+
+			/*
+			 * If we have skipped map entries, we need to make sure that
+			 * the byte vector is zeroed for those skipped entries.
+			 */
+			while ((lastvecindex + 1) < vecindex) {
+				++lastvecindex;
+				error = subyte(vec + lastvecindex, 0);
+				if (error) {
+					error = EFAULT;
+					goto done2;
+				}
+			}
+
+			/*
+			 * Pass the page information to the user
+			 */
+			error = subyte(vec + vecindex, mincoreinfo);
+			if (error) {
+				error = EFAULT;
+				goto done2;
+			}
+
+			/*
+			 * If the map has changed, due to the subyte, the previous
+			 * output may be invalid.
+			 */
+			vm_map_lock_read(map);
+			if (timestamp != map->timestamp)
+				goto RestartScan;
+
+			lastvecindex = vecindex;
+		}
+	}
+
+	/*
+	 * subyte may page fault.  In case it needs to modify
+	 * the map, we release the lock.
+	 */
+	vm_map_unlock_read(map);
+
+	/*
+	 * Zero the last entries in the byte vector.
+	 */
+	vecindex = atop(end - first_addr);
+	while ((lastvecindex + 1) < vecindex) {
+		++lastvecindex;
+		error = subyte(vec + lastvecindex, 0);
+		if (error) {
+			error = EFAULT;
+			goto done2;
+		}
+	}
+
+	/*
+	 * If the map has changed, due to the subyte, the previous
+	 * output may be invalid.
+	 */
+	vm_map_lock_read(map);
+	if (timestamp != map->timestamp)
+		goto RestartScan;
+	vm_map_unlock_read(map);
+done2:
+	return (error);
+}
+
+
+
+
+
 #ifndef _SYS_SYSPROTO_H_
 struct mlock_args {
 	const void *addr;

@@ -426,6 +426,7 @@ FBSD_1.7 {
 	swapoff;
 	get_thread_snapshot;
 	resume_from_snapshot;
+	msync_manual;
 };
 
 FBSDprivate_1.0 {
@@ -620,6 +621,8 @@ FBSDprivate_1.0 {
 	__sys_get_thread_snapshot;
 	_resume_from_snapshot;
 	__sys_resume_from_snapshot;
+	_msync_manual;
+	__sys_msync_manual;
 	_getaudit;
 	__sys_getaudit;
 	_getaudit_addr;

@@ -635,4 +635,5 @@ struct sysent freebsd64_sysent[] = {
 	{ .sy_narg = AS(freebsd64_swapoff_args), .sy_call = (sy_call_t *)freebsd64_swapoff, .sy_auevent = AUE_SWAPOFF, .sy_flags = 0, .sy_thrcnt = SY_THR_STATIC },	/* 582 = freebsd64_swapoff */
 	{ .sy_narg = AS(freebsd64_get_thread_snapshot_args), .sy_call = (sy_call_t *)freebsd64_get_thread_snapshot, .sy_auevent = AUE_NULL, .sy_flags = 0, .sy_thrcnt = SY_THR_STATIC },	/* 583 = freebsd64_get_thread_snapshot */
 	{ .sy_narg = AS(freebsd64_resume_from_snapshot_args), .sy_call = (sy_call_t *)freebsd64_resume_from_snapshot, .sy_auevent = AUE_NULL, .sy_flags = 0, .sy_thrcnt = SY_THR_STATIC },	/* 584 = freebsd64_resume_from_snapshot */
+	{ .sy_narg = AS(freebsd64_msync_manual_args), .sy_call = (sy_call_t *)freebsd64_msync_manual, .sy_auevent = AUE_NULL, .sy_flags = SYF_CAPENABLED, .sy_thrcnt = SY_THR_STATIC },	/* 585 = freebsd64_msync_manual */
 };

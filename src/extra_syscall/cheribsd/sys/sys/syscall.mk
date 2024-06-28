@@ -429,4 +429,5 @@ MIASM =  \
 	sched_getcpu.o \
 	swapoff.o \
 	get_thread_snapshot.o \
-	resume_from_snapshot.o
+	resume_from_snapshot.o \
+	msync_manual.o

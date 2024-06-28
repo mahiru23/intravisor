@@ -429,4 +429,5 @@ MIASM =  \
 	sched_getcpu.o \
 	freebsd64_swapoff.o \
 	freebsd64_get_thread_snapshot.o \
-	freebsd64_resume_from_snapshot.o
+	freebsd64_resume_from_snapshot.o \
+	freebsd64_msync_manual.o

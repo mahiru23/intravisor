@@ -1878,6 +1878,12 @@ struct resume_from_snapshot_args {
 	char threadid_l_[PADL_(int)]; int threadid; char threadid_r_[PADR_(int)];
 	char ctx_l_[PADL_(struct thread_snapshot *__capability)]; struct thread_snapshot *__capability ctx; char ctx_r_[PADR_(struct thread_snapshot *__capability)];
 };
+struct msync_manual_args {
+	char addr_l_[PADL_(const void * __capability)]; const void * __capability addr; char addr_r_[PADR_(const void * __capability)];
+	char len_l_[PADL_(size_t)]; size_t len; char len_r_[PADR_(size_t)];
+	char vec_l_[PADL_(char * __capability)]; char * __capability vec; char vec_r_[PADR_(char * __capability)];
+};
+
 
 
 int	sys_exit(struct thread *, struct exit_args *);
@@ -2279,6 +2285,7 @@ int	sys_sched_getcpu(struct thread *, struct sched_getcpu_args *);
 int	sys_swapoff(struct thread *, struct swapoff_args *);
 int	sys_get_thread_snapshot(struct thread *, struct get_thread_snapshot_args *);
 int	sys_resume_from_snapshot(struct thread *, struct resume_from_snapshot_args *);
+int	sys_msync_manual(struct thread *, struct msync_manual_args *);
 
 #ifdef COMPAT_43
 
@@ -3252,6 +3259,7 @@ int	freebsd13_swapoff(struct thread *, struct freebsd13_swapoff_args *);
 #define	SYS_AUE_swapoff	AUE_SWAPOFF
 #define	SYS_AUE_get_thread_snapshot	AUE_NULL
 #define	SYS_AUE_resume_from_snapshot	AUE_NULL
+#define	SYS_AUE_msync_manual	AUE_NULL
 
 
 #undef PAD_

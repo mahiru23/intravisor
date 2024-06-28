@@ -408,6 +408,7 @@ static int sysargmask[] = {
 	[SYS_swapoff] = (0x0 | 0x1),
 	[SYS_get_thread_snapshot] = (0x0 | 0x1),
 	[SYS_resume_from_snapshot] = (0x0 | 0x1),
+	[SYS_msync_manual] = (0x0 | 0x1 | 0x4),
 };
 
 #endif /* !_SYSARGMAP_H_ */

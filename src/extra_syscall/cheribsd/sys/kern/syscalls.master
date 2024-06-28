@@ -3330,6 +3330,16 @@
 		);
 	}
 
+
+
+585	AUE_NULL	STD|CAPENABLED {
+		int msync_manual(
+		    _In_ const void *addr,
+		    size_t len,
+		    _Out_writes_bytes_(len/PAGE_SIZE) char *vec
+		);
+	}
+
 ; Please copy any additions and changes to the following compatability tables:
 ; sys/compat/freebsd32/syscalls.master
 ; vim: syntax=off

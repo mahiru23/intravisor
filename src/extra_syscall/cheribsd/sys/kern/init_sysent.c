@@ -646,4 +646,6 @@ struct sysent sysent[] = {
 	{ .sy_narg = AS(swapoff_args), .sy_call = (sy_call_t *)sys_swapoff, .sy_auevent = AUE_SWAPOFF, .sy_flags = 0, .sy_thrcnt = SY_THR_STATIC },	/* 582 = swapoff */
 	{ .sy_narg = AS(get_thread_snapshot_args), .sy_call = (sy_call_t *)sys_get_thread_snapshot, .sy_auevent = AUE_NULL, .sy_flags = 0, .sy_thrcnt = SY_THR_STATIC },	/* 583 = get_thread_snapshot */
 	{ .sy_narg = AS(resume_from_snapshot_args), .sy_call = (sy_call_t *)sys_resume_from_snapshot, .sy_auevent = AUE_NULL, .sy_flags = 0, .sy_thrcnt = SY_THR_STATIC },	/* 584 = resume_from_snapshot */
+	{ .sy_narg = AS(msync_manual_args), .sy_call = (sy_call_t *)sys_msync_manual, .sy_auevent = AUE_NULL, .sy_flags = SYF_CAPENABLED, .sy_thrcnt = SY_THR_STATIC },	/* 585 = msync_manual */
+
 };

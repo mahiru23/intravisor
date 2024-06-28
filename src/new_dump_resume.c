@@ -76,7 +76,7 @@ int write_to_stackfile(int fd, void *addr, int size, int page) {
     /*------------------------------------------*/
     /*remap*/
 
-    off_t page_offset = 0; 
+    /*off_t page_offset = 0; 
     if (munmap(addr + page_offset, PAGE_SIZE) == -1) {
         perror("munmap page error");
         close(fd);
@@ -88,13 +88,14 @@ int write_to_stackfile(int fd, void *addr, int size, int page) {
         perror("mmap");
         close(fd);
         return EXIT_FAILURE;
-    }
+    }*/
 
     /*------------------------------------------*/
     return 0;
 }
 
 char dirty_page_map[PAGE_NUM];
+char dirty_page_map_temp[PAGE_NUM];
 
 void stack_dirty_page_update(struct c_thread *ct) {
 
@@ -132,9 +133,17 @@ void stack_dirty_page_update(struct c_thread *ct) {
         exit(EXIT_FAILURE);
     }*/
 
+    if (msync_manual(ct->stack, ct->stack_size, dirty_page_map_temp) == -1) {
+        perror("mincore");
+        //free(vec);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("msync_manual\n");
+
     get_dirty_page_num(ct->stack_size, pages, ct->stack);
 
-	size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
+	/*size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
 
 #if __FreeBSD__
 	if(sysctlbyname("security.cheri.sealcap", &global_sealcap, &sealcap_size, NULL, 0) < 0) {
@@ -147,7 +156,7 @@ void stack_dirty_page_update(struct c_thread *ct) {
 
     set_cap_info(ct->stack, ct->stack_size);
 
-    get_dirty_page_num(ct->stack_size, pages, ct->stack);
+    get_dirty_page_num(ct->stack_size, pages, ct->stack);*/
 
     close(fd); 
     

@@ -3453,6 +3453,15 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 3;
 		break;
 	}
+	/* freebsd64_msync_manual */
+	case 585: {
+		struct freebsd64_msync_manual_args *p = params;
+		uarg[a++] = (intptr_t)p->addr; /* const void * */
+		uarg[a++] = p->len; /* size_t */
+		uarg[a++] = (intptr_t)p->vec; /* char * */
+		*n_args = 3;
+		break;
+	}
 
 	default:
 		*n_args = 0;
@@ -9235,6 +9244,22 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* freebsd64_msync_manual */
+	case 585:
+		switch (ndx) {
+		case 0:
+			p = "userland const void *";
+			break;
+		case 1:
+			p = "size_t";
+			break;
+		case 2:
+			p = "userland char *";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -11205,6 +11230,11 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* freebsd64_resume_from_snapshot */
 	case 584:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* freebsd64_msync_manual */
+	case 585:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;

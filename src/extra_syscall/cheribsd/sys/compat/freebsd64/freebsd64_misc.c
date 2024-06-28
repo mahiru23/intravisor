@@ -1919,3 +1919,10 @@ freebsd64_resume_from_snapshot(struct thread *td, struct freebsd64_resume_from_s
 {
 	return (kern_resume_from_snapshot(td, uap->pid, uap->threadid, uap->ctx));
 }
+
+int
+freebsd64_msync_manual(struct thread *td, struct freebsd64_msync_manual_args *uap)
+{
+	return (kern_msync_manual(td, (uintptr_t)uap->addr, uap->len,
+	    __USER_CAP(uap->vec, uap->len)));
+}

@@ -3453,6 +3453,15 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 3;
 		break;
 	}
+	/* msync_manual */
+	case 585: {
+		struct msync_manual_args *p = params;
+		uarg[a++] = (intptr_t)p->addr; /* const void * __capability */
+		uarg[a++] = p->len; /* size_t */
+		uarg[a++] = (intptr_t)p->vec; /* char * __capability */
+		*n_args = 3;
+		break;
+	}
 	default:
 		*n_args = 0;
 		break;
@@ -9234,6 +9243,22 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* msync_manual */
+	case 585:
+		switch (ndx) {
+		case 0:
+			p = "userland const void * __capability";
+			break;
+		case 1:
+			p = "size_t";
+			break;
+		case 2:
+			p = "userland char * __capability";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -11204,6 +11229,11 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* resume_from_snapshot */
 	case 584:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* msync_manual */
+	case 585:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;

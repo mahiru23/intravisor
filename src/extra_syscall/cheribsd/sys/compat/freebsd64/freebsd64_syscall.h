@@ -524,4 +524,5 @@
 #define	FREEBSD64_SYS_freebsd64_swapoff	582
 #define	FREEBSD64_SYS_freebsd64_get_thread_snapshot	583
 #define	FREEBSD64_SYS_freebsd64_resume_from_snapshot	584
-#define	FREEBSD64_SYS_MAXSYSCALL	585
+#define	FREEBSD64_SYS_freebsd64_msync_manual	585
+#define	FREEBSD64_SYS_MAXSYSCALL	586

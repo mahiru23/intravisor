@@ -525,5 +525,7 @@
 
 #define	SYS_get_thread_snapshot	583
 #define	SYS_resume_from_snapshot	584
+#define	SYS_msync_manual	585
 
-#define	SYS_MAXSYSCALL	585
+
+#define	SYS_MAXSYSCALL	586

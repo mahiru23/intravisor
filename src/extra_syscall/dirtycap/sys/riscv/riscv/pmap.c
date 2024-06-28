@@ -4772,6 +4772,61 @@ pmap_mincore(pmap_t pmap, vm_offset_t addr, vm_paddr_t *pap)
 	return (val);
 }
 
+int
+pmap_msync_manual(pmap_t pmap, vm_offset_t addr, vm_paddr_t *pap)
+{
+	pt_entry_t *l2, *l3, tpte;
+	vm_paddr_t pa;
+	int val;
+	bool managed;
+
+	PMAP_LOCK(pmap);
+	l2 = pmap_l2(pmap, addr);
+	if (l2 != NULL && ((tpte = pmap_load(l2)) & PTE_V) != 0) {
+		int flag;
+		if ((tpte & PTE_RWX) != 0) {
+			flag = 2;
+			pa = PTE_TO_PHYS(tpte) | (addr & L2_OFFSET);
+			val = MINCORE_INCORE | MINCORE_PSIND(1);
+		} else {
+			flag = 3;
+			l3 = pmap_l2_to_l3(l2, addr);
+			tpte = pmap_load(l3);
+			if ((tpte & PTE_V) == 0) {
+				PMAP_UNLOCK(pmap);
+				return (0);
+			}
+			pa = PTE_TO_PHYS(tpte) | (addr & L3_OFFSET);
+			val = MINCORE_INCORE;
+		}
+
+        if ((tpte & PTE_D) != 0) {
+            tpte &= ~PTE_D;
+            pmap_store(flag == 2 ? l2 : l3, tpte);
+            pmap_invalidate_page(pmap, addr);
+        }
+
+		/*if ((tpte & PTE_D) != 0)
+			val |= MINCORE_MODIFIED | MINCORE_MODIFIED_OTHER;*/
+		if ((tpte & PTE_A) != 0)
+			val |= MINCORE_REFERENCED | MINCORE_REFERENCED_OTHER;
+#if __has_feature(capabilities)
+		if ((tpte & PTE_CW) != 0)
+			val |= MINCORE_CAPSTORE;
+#endif
+		managed = (tpte & PTE_SW_MANAGED) == PTE_SW_MANAGED;
+	} else {
+		managed = false;
+		val = 0;
+	}
+	if ((val & (MINCORE_MODIFIED_OTHER | MINCORE_REFERENCED_OTHER)) !=
+	    (MINCORE_MODIFIED_OTHER | MINCORE_REFERENCED_OTHER) && managed) {
+		*pap = pa;
+	}
+	PMAP_UNLOCK(pmap);
+	return (val);
+}
+
 void
 pmap_activate_sw(struct thread *td)
 {

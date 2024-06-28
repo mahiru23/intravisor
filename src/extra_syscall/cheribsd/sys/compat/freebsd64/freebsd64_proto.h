@@ -1528,6 +1528,11 @@ struct freebsd64_resume_from_snapshot_args {
 	char threadid_l_[PADL_(int)]; int threadid; char threadid_r_[PADR_(int)];
 	char ctx_l_[PADL_(struct thread_snapshot *__capability)]; struct thread_snapshot *__capability ctx; char ctx_r_[PADR_(struct thread_snapshot *__capability)];
 };
+struct freebsd64_msync_manual_args {
+	char addr_l_[PADL_(const void *)]; const void * addr; char addr_r_[PADR_(const void *)];
+	char len_l_[PADL_(size_t)]; size_t len; char len_r_[PADR_(size_t)];
+	char vec_l_[PADL_(char *)]; char * vec; char vec_r_[PADR_(char *)];
+};
 
 
 int	freebsd64_read(struct thread *, struct freebsd64_read_args *);
@@ -1837,6 +1842,7 @@ int	freebsd64_fspacectl(struct thread *, struct freebsd64_fspacectl_args *);
 int	freebsd64_swapoff(struct thread *, struct freebsd64_swapoff_args *);
 int	freebsd64_get_thread_snapshot(struct thread *, struct freebsd64_get_thread_snapshot_args *);
 int	freebsd64_resume_from_snapshot(struct thread *, struct freebsd64_resume_from_snapshot_args *);
+int	freebsd64_msync_manual(struct thread *, struct freebsd64_msync_manual_args *);
 
 
 #ifdef COMPAT_43
@@ -2406,6 +2412,7 @@ int	freebsd13_freebsd64_swapoff(struct thread *, struct freebsd13_freebsd64_swap
 #define	FREEBSD64_SYS_AUE_freebsd64_swapoff	AUE_SWAPOFF
 #define	FREEBSD64_SYS_AUE_freebsd64_get_thread_snapshot	AUE_NULL
 #define	FREEBSD64_SYS_AUE_freebsd64_resume_from_snapshot	AUE_NULL
+#define	FREEBSD64_SYS_AUE_freebsd64_msync_manual	AUE_NULL
 
 #undef PAD_
 #undef PADL_
