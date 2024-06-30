@@ -67,17 +67,7 @@ void *init_thread(void *arg) {
 	printf("%p\n", getSP());
 	CHERI_CAP_PRINT(me->c_tp);
 	printf("mtp: %p\n", me->m_tp);
-	printf("%p\n", me->c_tp);
-	printf("%lx\n", me->c_tp);
-	/*
-	printf("%lx\n", sp);
-	sp;
-	 getTP();
-	  sp_read;
-	   me->stack;
-	    getSP();
-		 me->c_tp;
-		  me->c_tp;*/
+	printf("%p\n", (__cheri_fromcap void *)(me->c_tp));
 	printf("target SP = %lx, old TP = %lx sp_read = %p, me->stacl = %p, getSP()=%p, me->c_tp = %p %lx\n", sp, getTP(), sp_read, me->stack, getSP(), me->c_tp, me->c_tp);
 	int cenv_size = 0;
 	sp[0] = me->argc;

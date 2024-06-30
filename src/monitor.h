@@ -59,6 +59,11 @@
 
 #include <stdbool.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h> 
+#include <sys/select.h>
+
+
 #include "intravisor.h"
 #include <arch.h>
 
@@ -508,13 +513,14 @@ extern bool master_valid_flag;
 extern bool backup_valid_flag;
 extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
-
+#define PORT 8080
 #define HEARTBEAT_TIMEOUT 5
 #define DISCONNECTION_TIMEOUT 15
 //int send_to_backup();
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
 
+extern int global_socket;
 extern int master_checkpoint;
 extern int backup_checkpoint;
 
@@ -525,4 +531,15 @@ struct files_detail {
     int stack_page_len;
     int stack_cap_tags_len;
 };
+
+#define ANALYSE 1
+
+/*async pipeline*/
+#define ASYNC_PIPELINE 1
+extern int global_send_buffer_size;
+extern char* global_send_buffer;
+
+void init_async_pipeline_master();
+void async_pipeline_master_impl();
+
 

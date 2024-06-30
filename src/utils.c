@@ -321,10 +321,25 @@ int send_all(int sock, void *buf, int size) {
     int bytes_left = size;
     while (total_bytes_sent < size) {
         ssize_t bytes_sent = send(sock, buf + total_bytes_sent, bytes_left, MSG_NOSIGNAL);
-        if (bytes_sent <= 0) {
+        if (bytes_sent == 0) {
 			printf("bytes_sent: %d\n", bytes_sent);
-            perror("send failed");
+            printf("Send failed: The peer closed the connection\n");
             return -1;
+        }
+
+        if (bytes_sent < 0) {
+            perror("Send failed");
+			if (errno == EWOULDBLOCK || errno == EAGAIN) {
+				printf("send-Q/recv-Q is full, waiting for peer\n");
+				continue;
+			}
+			else if (errno == EINTR) {
+				continue;
+			}
+			else {
+				return -1;
+			}
+			usleep(1); // reduce CPU usage
         }
         total_bytes_sent += bytes_sent;
         bytes_left -= bytes_sent;
@@ -338,10 +353,24 @@ int recv_all(int sock, void *buf, int size) {
     int bytes_left = size;
     while (total_bytes_recv < size) {
         ssize_t bytes_recv = recv(sock, buf + total_bytes_recv, bytes_left, 0);
-        if (bytes_recv <= 0) {
+        if (bytes_recv == 0) {
 			printf("bytes_recv: %d\n", bytes_recv);
-            perror("recv failed");
+            printf("recv failed: The peer closed the connection\n");
             return -1;
+        }
+        if (bytes_recv < 0) {
+			perror("recv failed");
+			if (errno == EWOULDBLOCK || errno == EAGAIN) {
+				printf("send-Q/recv-Q is empty, waiting for peer\n");
+				continue;
+			}
+			else if (errno == EINTR) {
+				continue;
+			}
+			else {
+				return -1;
+			}
+			usleep(1); // reduce CPU usage
         }
         total_bytes_recv += bytes_recv;
         bytes_left -= bytes_recv;

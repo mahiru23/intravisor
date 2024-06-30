@@ -183,6 +183,11 @@ int cvm_dumping() {
     pause_thread();
     get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
+#if DEBUG
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+#endif
+
     int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
     unsigned long lower_bound = comp_to_mon(ct->sbox->base, ct->sbox);
@@ -286,10 +291,14 @@ int cvm_dumping() {
         replica_flag = 0;
     }
 
-    //pthread_mutex_unlock(&ct->sbox->ct_lock);
-    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+#if DEBUG
+    gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    printf("capture snapshot of %d in %f, ", cid, (now - then) / 1000.0);
+#endif
 
-    //pthread_resume_np(global_pid);
+    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
     resume_thread();
     return 0;
 }

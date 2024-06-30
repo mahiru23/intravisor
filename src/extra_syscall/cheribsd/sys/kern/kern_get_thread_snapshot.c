@@ -19,7 +19,7 @@
 #include <sys/sysctl.h>
 #include <sys/stddef.h>
 #include <sys/sysent.h>
-
+#include <sys/priority.h>
 #include <sys/rwlock.h>
 #include <sys/malloc.h>
 #include <sys/vnode.h>
@@ -55,6 +55,7 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
     struct thread *t;
     struct thread_snapshot ctx2;
     int error;
+    int kernel_debug = 0; // arg in
 
     p = td->td_proc;
     pid_t pid = p->p_pid;
@@ -68,7 +69,9 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         return ESRCH;
     }
 
-    log(LOG_WARNING, "Debug: thread is %p\n", t);
+    if(kernel_debug == 1) {
+        log(LOG_WARNING, "Debug: thread is %p\n", t);
+    }
 
     PROC_UNLOCK(p);
 
@@ -77,9 +80,14 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         PROC_SLOCK(p);
         thread_lock(t);
         thread_suspend_one(t);
+        sched_prio(t, PRI_MAX);
         thread_unlock(t);
         PROC_SUNLOCK(p);
-        log(LOG_WARNING, "Debug: thread is suspend \n");
+
+        if(kernel_debug == 1) {
+            log(LOG_WARNING, "Debug: thread is suspend \n");
+        }
+
         return 0;
     }
 
@@ -89,48 +97,17 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         PROC_SLOCK(p);
         thread_lock(t);
         thread_unsuspend_one_extra(p, t);
+        sched_prio(t, PRI_MIN);
         thread_unlock(t);
         PROC_SUNLOCK(p);
         PROC_UNLOCK(p);
-        log(LOG_WARNING, "Debug: thread is resume \n");
+
+        if(kernel_debug == 1) {
+            log(LOG_WARNING, "Debug: thread is resume \n");
+        }
+
         return 0;
     }
-
-    /*if(pid_flag == -3) //suspend and lock thread
-    {
-        PROC_SLOCK(p);
-        thread_lock(t);
-        thread_suspend_one(t);
-        PROC_SUNLOCK(p);
-        log(LOG_WARNING, "Debug: thread is suspend and lock\n");
-        return 0;
-    }
-
-    if(pid_flag == -4) //resume and unlock thread
-    {
-        PROC_LOCK(p);
-        PROC_SLOCK(p);
-        thread_unlock(t);
-        thread_unsuspend(p);
-        PROC_SUNLOCK(p);
-        PROC_UNLOCK(p);
-        log(LOG_WARNING, "Debug: thread is resume and unlock \n");
-        return 0;
-    }
-
-
-    if(pid_flag == -5) 
-    {
-        PROC_LOCK(p);
-        //thread_lock(t);
-
-        memcpy(&(ctx2.frame), t->td_frame, sizeof(struct trapframe)); // context
-        error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
-        log(LOG_WARNING, "Debug: error is %d\n", error);
-
-        thread_unlock(t);
-        PROC_UNLOCK(p);
-    }*/
 
     if(pid_flag == -6) 
     {
@@ -139,13 +116,18 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
 
         memcpy(&(ctx2.frame), t->td_frame, sizeof(struct trapframe)); // context
         error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
-        log(LOG_WARNING, "Debug: error is %d\n", error);
+        if (error) {
+            log(LOG_WARNING, "copyoutcap error\n");
+            return error;
+        }
+
+        if(kernel_debug == 1) {
+            log(LOG_WARNING, "Debug: capture snapshot \n");
+        }
 
         thread_unlock(t);
         PROC_UNLOCK(p);
     }
-
-
 
     return 0;
 }
@@ -168,20 +150,21 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
     // find thread
     t = tdfind(threadid, pid);
     if (t == NULL) {
-        //PROC_UNLOCK(p);
         log(LOG_WARNING, "tdfind error\n");
         return ESRCH;
     }
 
-    log(LOG_WARNING, "tdfind ok\n");
-    log(LOG_WARNING, "Debug: thread is %p\n", t);
-    log(LOG_WARNING, "t->td_frame start\n");
-
     /*reg*/
-
     int error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
     if (error) {
+        log(LOG_WARNING, "copyincap error\n");
         return error;
+    }
+
+    if(ctx_in.kernel_debug == 1) {
+        log(LOG_WARNING, "tdfind ok\n");
+        log(LOG_WARNING, "Debug: thread is %p\n", t);
+        log(LOG_WARNING, "t->td_frame start\n");
     }
 
     t->td_frame->tf_ra = ctx_in.frame.tf_ra;
@@ -217,15 +200,16 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
     t->td_frame->tf_a[7] = ctx_in.frame.tf_a[7];
     t->td_frame->tf_sepc = ctx_in.frame.tf_sepc;
     t->td_frame->tf_ddc = ctx_in.frame.tf_ddc;
-
     t->td_frame->tf_sstatus = ctx_in.frame.tf_sstatus;
     /*t->td_frame->tf_stval = ctx_in.frame.tf_stval;
     t->td_frame->tf_scause = ctx_in.frame.tf_scause;*/
 
-    log(LOG_WARNING, "t->td_frame ok\n");
-    log(LOG_WARNING, "over\n");
-    PROC_UNLOCK(p);
+    if(ctx_in.kernel_debug == 1) {
+        log(LOG_WARNING, "t->td_frame ok\n");
+        log(LOG_WARNING, "over\n");
+    }
 
+    PROC_UNLOCK(p);
     return 0;
 }
 

@@ -1,13 +1,6 @@
 #include "monitor.h"
 
 
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h> 
-#include <sys/select.h>
-#include <errno.h>
-
-#define PORT 8080
 #define BUF_SIZE 1024
 #define TIMEOUT_SEC 5
 
@@ -199,6 +192,17 @@ int master_network_setup() {
         exit(EXIT_FAILURE);
     }
     
+#if ASYNC_PIPELINE
+    int oldSocketFlag = fcntl(sock, F_GETFL, 0);
+    int newSocketFlag = oldSocketFlag | O_NONBLOCK;
+    if (fcntl(sock, F_SETFL, newSocketFlag) == -1)
+    {
+        close(sock);
+        perror("master_network_setup, set non_block socket failed");
+        return -1;
+    }
+#endif
+
     is_master = true;
     master_valid_flag = true;
     backup_valid_flag = true;
@@ -440,5 +444,6 @@ int backup_server_impl() {
 
     return 0;
 }
+
 
 

@@ -14,6 +14,7 @@
 struct thread_snapshot {
     struct trapframe frame;
     void *__capability stack;
+    int kernel_debug;
 };
 
 // int get_thread_snapshot(pid_t pid, pthread_t tid, int threadid, struct thread_snapshot *ctx);
