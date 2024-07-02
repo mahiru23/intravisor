@@ -1038,6 +1038,11 @@ int main(int argc, char *argv[]) {
 			is_master = true;
 			master_valid_flag = true;
 			master_network_setup();
+
+#if ASYNC_PIPELINE
+        	async_pipeline_master_init();
+#endif
+			
 		} else if(strcmp("-b", *argv) == 0 || strcmp("--backup", *argv) == 0) {
 			skip_argc += 2;
 			is_master = false;

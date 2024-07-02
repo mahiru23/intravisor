@@ -331,6 +331,9 @@ int backup_failure_handler() {
 	queue *que = &backup_event_queue;
 	while(que->top != NULL) {
 		node *n = pop_front(que);
+		if(n->payload != NULL) {
+			free(n->payload);
+		}
 		free(n);
 	}
 

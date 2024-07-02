@@ -50,7 +50,7 @@ void async_pipeline_master_impl() {
         // may need queue lock?????
         if(que->top == NULL) { // queue empty
             //select_ret = select(FD_SETSIZE, &readset, 0, 0, &tm);
-            usleep(10);
+            usleep(300);
             continue;
         }
         else {
@@ -70,11 +70,11 @@ void async_pipeline_master_impl() {
             continue;
         } else {
             // ... 
-            if (FD_ISSET(global_socket, &readset)) {
+            /*if (FD_ISSET(global_socket, &readset)) {
                 // read request from backup
                 // may not need???
                 ;
-            }
+            }*/
 
             if (FD_ISSET(global_socket, &writeset)) {
                 // write sendqueue
@@ -82,12 +82,17 @@ void async_pipeline_master_impl() {
                 int flag = 0;
                 while(que->top != NULL) {
                     node *n = que->top;
+                    printf("send n->type: %d\n", n->type);
                     if(send_all(global_socket, n, sizeof(node)) == -1) {
                         flag = 1;
+                        printf("async_pipeline_master_impl: send node error\n");
                         break;
                     }
+                    printf("async_pipeline_master_impl: send node success\n\n\n\n");
+
                     if(send_all(global_socket, n->payload, n->len) == -1) {
                         flag = 1;
+                        printf("async_pipeline_master_impl: send payload error\n");
                         break;
                     }
                     if(n->payload != NULL) {
@@ -181,10 +186,13 @@ void send_to_backup_op(long t5, long a0, long a1, long a2, long a3) {
             perror("malloc write_buffer error");
             exit(EXIT_FAILURE);
         }
-        memcpy((void *)(a1), write_buffer, a2);
+        memcpy((void *)(write_buffer), (void *)(a1), a2);
         n->len = a2;
         n->payload = write_buffer;
         push_back(que, n);
+
+        printf("sender write_buffer: %s\n\n\n\n", write_buffer);
+        printf("sender (void *)(a1): %s\n\n\n\n", (a1));
 
         /*send_all(global_socket, &type, sizeof(type));
         send_all(global_socket, v, sizeof(struct vm_event));
@@ -315,19 +323,11 @@ int release_queue(queue* que) {
         switch (n->event.t5) {
         case 803: { // close
             int master_fd = n->event.a0;
-            if(close_fd(master_fd) == -1) {
-                perror("cannot find master_fd");
-                return -1;
-            }
+            close(master_fd);
             break;
         }
         case 808: {// truncate
-            char *pathname = (char *)malloc(n->len);
-            if(recv_all(global_socket, pathname, n->len) == -1) {
-                backup_failure_handler();
-                free(pathname);
-                return -1;
-            }
+            char *pathname = n->payload;
             if(truncate(pathname, n->event.a1) == -1) {
                 perror("cannot truncate");
                 return -1;
@@ -335,29 +335,27 @@ int release_queue(queue* que) {
             break;
         }
         case 811: {// open
-            char *pathname = (char *)malloc(n->len);
-            if(recv_all(global_socket, pathname, n->len) == -1) {
-                backup_failure_handler();
-                free(pathname);
-                return -1;
-            }
-            if(open_fd(pathname, n->event.a1, n->event.a2) == -1) {
+            char *pathname = n->payload;
+            int master_fd = n->event.a3;
+            if(open_fd_new(master_fd, pathname, n->event.a1, n->event.a2) == -1) {
                 perror("cannot open master_fd");
                 return -1;
             }
             break;
         }
         case 810: {// write
-            char *write_buffer = (char *)malloc(n->len);
-            if(recv_all(global_socket, write_buffer, n->len) == -1) {
-                backup_failure_handler();
-                free(write_buffer);
+            char *write_buffer = n->payload;
+            int master_fd = n->event.a0;
+            int current_pos = n->event.a3;
+            if (lseek(master_fd, current_pos, SEEK_SET) == -1) {
+                perror("lseek error");
                 return -1;
             }
-            int master_fd = n->event.a0;
-            int backup_fd = find_backup_fd(master_fd);
-            if (write(backup_fd, write_buffer, n->len) == -1) {
-                perror("write backup_fd");
+
+            printf("write_buffer: %s, current_pos: %d, n->len: %d\n\n\n\n", write_buffer, current_pos, n->len);
+
+            if (write(master_fd, write_buffer, n->len) == -1) {
+                perror("write master_fd");
                 close_fd(master_fd);
                 exit(EXIT_FAILURE);
             }
@@ -370,6 +368,9 @@ int release_queue(queue* que) {
             while(1);
         }
 
+		if(n->payload != NULL) {
+			free(n->payload);
+		}
 		n = pop_front(que);
 		free(n);
 	}
@@ -420,12 +421,25 @@ int async_backup_server_impl() {
         return -1;
     }
 
+    printf("recv n->type: %d\n", n->type);
+    printf("async_backup_server_impl recv_all node \n\n\n\n\n");
+
     if(n->type == HEARTBEAT) { // heartbeat (not checkpoint)
         //release_queue(que);
         return 0;
     }
     else if(n->type == FILE_OPS || n->type == SOCKET_OPS) {
         push_back(que, n);
+        if(n->payload != NULL) {
+            char *write_buffer = (char *)malloc(n->len);
+            if(recv_all(global_socket, write_buffer, n->len) == -1) {
+                backup_failure_handler();
+                free(write_buffer);
+                return -1;
+            }
+            n->payload = write_buffer;
+            printf("write_buffer: %s\n\n\n\n", write_buffer);
+        }
         return 0;
     }
     else if(n->type == SNAPSHOT) { // checkpoint
@@ -443,9 +457,11 @@ int async_backup_server_impl() {
         release_queue(que);
         save_snapshot(que, n, packet);
         free(packet);
+        free(n);
     }
     else {
-        perror("error node type!");
+        perror("async_backup_server_impl: error node type!\n\n\n\n\n");
+        free(n);
         exit(-1);
     }
 

@@ -819,6 +819,7 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 				perror("Failed to get current file position");
 				return -1;
 			}
+			printf("sender comp_to_mon(a1, ct->sbox): %s\n\n\n\n", comp_to_mon(a1, ct->sbox));
 			send_to_backup_op(810, a0, comp_to_mon(a1, ct->sbox), a2, current_pos);
 		}
 		break;
@@ -826,7 +827,7 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 //                      ret = open(comp_to_mon(a0, ct->sbox), a1, a2);
 		ret = open(comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
 		if((is_master & backup_valid_flag) && ret != -1) {
-			send_to_backup_op(811, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
+			send_to_backup_op(811, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666, ret);
 		}
 		break;
 	case 812:

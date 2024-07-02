@@ -375,7 +375,15 @@ int backup_server_impl();
 int backup_server() {
     int ret = 0;
     while(1) {
+
+#if ASYNC_PIPELINE
+        printf("async_backup_server_impl start\n\n\n\n\n");
+        ret = async_backup_server_impl();
+        
+#elif
         ret = backup_server_impl();
+#endif
+
         printf("backup_server_impl loop, ret: %d\n", ret);
         if(ret == -1) {
             break;

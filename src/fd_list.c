@@ -72,6 +72,26 @@ int open_fd(int master_fd, const char *pathname, int flags, mode_t mode) {
 }
 
 
+int open_fd_new(int master_fd, const char *pathname, int flags, mode_t mode) {
+
+    printf("pathname: %s\n", pathname);
+    int backup_fd = open(pathname, flags, mode);
+    if (backup_fd == -1) {
+        perror("backup_fd open");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("backup_fd: %d, master_fd: %d\n", backup_fd, master_fd);
+
+    if (dup2(backup_fd, master_fd) < 0) {
+        perror("dup2");
+        close(backup_fd);
+        return -1;
+    }
+    //close(backup_fd);
+    return 0;
+
+}
 
 
 

@@ -212,7 +212,11 @@ int cvm_dumping() {
         ;
     }
     else { // in kernel
+#if ASYNC_PIPELINE
+        async_heartbeat();
+#elif
         heartbeat(-1);
+#endif
         printf("in kernel\n");
         replica_flag = 1;
         //pthread_mutex_unlock(&ct->sbox->ct_lock);
@@ -277,7 +281,11 @@ int cvm_dumping() {
     host_cap_file_dump();
 
     if(is_master & backup_valid_flag) {
+#if ASYNC_PIPELINE
+        async_master_to_backup(ct, dirty_page_num);
+#elif
         master_to_backup(ct, dirty_page_num);
+#endif
     }
 
 #if DEBUG
