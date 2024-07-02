@@ -207,6 +207,7 @@ int master_network_setup() {
     master_valid_flag = true;
     backup_valid_flag = true;
     global_socket = sock;
+    queue_init(&master_event_queue);
 
     return 0;
 }
@@ -362,6 +363,7 @@ int backup_network_setup() {
     backup_valid_flag = true;
     master_valid_flag = true;
     global_socket = new_socket;
+    queue_init(&backup_event_queue);
 
     printf("backup_network_setup, over\n");
 
@@ -409,6 +411,7 @@ int backup_server_impl() {
 
     if(recv_all(global_socket, packet, snapshot_size) == -1) {
         backup_failure_handler();
+        free(packet);
         return -1;
     }
 
@@ -430,6 +433,8 @@ int backup_server_impl() {
     }
 
     pos += snapshot_to_file("stack_cap_tags.bin", (packet + pos), packet_index.stack_cap_tags_len, 0);
+
+    free(packet);
 
     printf("save, over\n");
 

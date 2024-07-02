@@ -793,12 +793,18 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 		break;
 	case 803:
 		ret = close(a0);
+		if((is_master & backup_valid_flag) && ret != -1) {
+			send_to_backup_op(803, a0);
+		}
 		break;
 	case 804:
 		ret = access(comp_to_mon(a0, ct->sbox), a1);
 		break;
 	case 808:
 		ret = truncate(comp_to_mon(a0, ct->sbox), a1);
+		if((is_master & backup_valid_flag) && ret != -1) {
+			send_to_backup_op(808, comp_to_mon(a0, ct->sbox), a1);
+		}
 		break;
 	case 809:
 //                      printf("read = %d, %p, %d\n", a0, comp_to_mon(a1, ct->sbox), a2);
@@ -807,10 +813,21 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 		break;
 	case 810:
 		ret = write(a0, comp_to_mon(a1, ct->sbox), a2);
+		if((is_master & backup_valid_flag) && ret != -1) {
+			off_t current_pos = lseek(a0, 0, SEEK_CUR);
+			if (current_pos == -1) {
+				perror("Failed to get current file position");
+				return -1;
+			}
+			send_to_backup_op(810, a0, comp_to_mon(a1, ct->sbox), a2, current_pos);
+		}
 		break;
 	case 811:
 //                      ret = open(comp_to_mon(a0, ct->sbox), a1, a2);
 		ret = open(comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
+		if((is_master & backup_valid_flag) && ret != -1) {
+			send_to_backup_op(811, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
+		}
 		break;
 	case 812:
 //                      printf("lseek set %d %d %d\n", a0, a1, a2);

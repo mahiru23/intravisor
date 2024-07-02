@@ -304,6 +304,19 @@ int master_failure_handler() {
     master_valid_flag = true;
     backup_valid_flag = false;
     is_master = true;
+
+	// free all master_event_queue
+	queue *que = &master_event_queue;
+	while(que->top != NULL) {
+		node *n = que->top;
+		if(n->payload != NULL) {
+			free(n->payload);
+		}
+		n = pop_front(que);
+		free(n);
+	}
+
+
     return 0;
 }
 
@@ -312,6 +325,17 @@ int backup_failure_handler() {
     master_valid_flag = true;
     backup_valid_flag = false;
     is_master = true;
+
+	// free all backup_event_queue
+	// payload is trashdata
+	queue *que = &backup_event_queue;
+	while(que->top != NULL) {
+		node *n = pop_front(que);
+		free(n);
+	}
+
+	clear_fd_list();
+
     return 0;
 }
 

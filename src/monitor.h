@@ -333,6 +333,14 @@ struct c_tread *get_cur_thread();
 
 ////// lists, for SCO eval and future
 
+struct vm_event {
+    long t5;
+    long a0; 
+    long a1; 
+    long a2; 
+    long a3;
+};
+
 typedef struct node_s node;
 typedef struct queue_s queue;
 
@@ -345,6 +353,9 @@ struct node_s {
 	struct header_s header;
 	void *payload;
 	int id;			//actually only payload should be used
+	int type;
+	int len;
+	struct vm_event event;
 };
 
 struct queue_s {
@@ -521,7 +532,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 extern char dirty_page_map[PAGE_NUM];
 
 extern int global_socket;
-extern int master_checkpoint;
+extern int master_checkpoint; // now checkpoint auto increment, timestamp may be better?
 extern int backup_checkpoint;
 
 struct files_detail {
@@ -543,3 +554,15 @@ void init_async_pipeline_master();
 void async_pipeline_master_impl();
 
 
+// event queue
+
+// packet type
+// -1 heartbeat, 1 snapshot, 2 file_ops, 3 socket_ops
+
+#define HEARTBEAT -1
+#define SNAPSHOT 1
+#define FILE_OPS 2
+#define SOCKET_OPS 3
+
+extern queue master_event_queue;
+extern queue backup_event_queue;
