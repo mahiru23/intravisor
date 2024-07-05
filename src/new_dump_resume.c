@@ -1,7 +1,7 @@
 #include "monitor.h"
 #include <pthread_np.h>
 
-#define DEBUG 1
+
 
 int replica_flag = 0;
 //bool stack_cap_tags[32768]; // max_stack_size = 0x80000
@@ -112,37 +112,51 @@ int write_to_stackfile(int fd, void *addr, int size, int page) {
 char dirty_page_map[PAGE_NUM];
 char dirty_page_map_temp[PAGE_NUM];
 
-void stack_dirty_page_update(struct c_thread *ct) {
-
+int stack_dirty_page_update(struct c_thread *ct) {
+    int dirty_page_num = 0;
+    int pages = (ct->stack_size) / PAGE_SIZE;
     int fd = open("stack_dump.bin", O_RDWR, 0777);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
     }
 
-    int pages = (ct->stack_size) / PAGE_SIZE;
-
+#if DEBUG
+    printf("before msync_manual: ");
     get_dirty_page_num(ct->stack_size, pages, ct->stack);
+#endif
 
     memset(dirty_page_map, 0, sizeof(dirty_page_map));
     if (mincore(ct->stack, ct->stack_size, dirty_page_map) == -1) {
         perror("mincore");
         exit(EXIT_FAILURE);
     }
+
+    // copy full stack at first loop (only once)
+    if(full_copy_flag == 0) {
+        full_copy_flag = 1;
+        for (int i = 0; i < pages; i++) {
+            dirty_page_map[i] |= MINCORE_MODIFIED;
+        }
+    }
+
     for (int i = 0; i < pages; i++) {
         if (dirty_page_map[i] & MINCORE_MODIFIED) {
             write_to_stackfile(fd, ct->stack+i*PAGE_SIZE, PAGE_SIZE, i);
+            dirty_page_num++;
         }
     }
     if (msync_manual(ct->stack, ct->stack_size, dirty_page_map_temp) == -1) {
         perror("msync_manual");
         exit(EXIT_FAILURE);
     }
+
 #if DEBUG
     printf("after msync_manual: ");
-#endif
     get_dirty_page_num(ct->stack_size, pages, ct->stack);
+#endif
     close(fd); 
+    return dirty_page_num;
 }
 
 // replica_flag is a state machine here
@@ -153,6 +167,7 @@ int cvm_dumping() {
     struct c_thread *ct = cvms[cid].threads;
     //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
+    ctx.kernel_debug = DEBUG;
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
 
@@ -164,7 +179,7 @@ int cvm_dumping() {
 #endif
 
     pause_thread();
-    get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
+    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
 #if ANALYSE
     struct timeval start, end;
@@ -203,7 +218,7 @@ int cvm_dumping() {
         printf("in kernel\n");
         replica_flag = 1;
         //pthread_mutex_unlock(&ct->sbox->ct_lock);
-        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
         resume_thread();
         return 0;
     }
@@ -241,10 +256,9 @@ int cvm_dumping() {
 #if DEBUG
     printf("thread_context end\n");
 #endif
-    int dirty_page_num = get_dirty_page_num(ct->stack_size, PAGE_NUM, ct->stack);
-    int valid_cap_num = get_cap_info(ct->stack, ct->stack_size);
 
-    stack_dirty_page_update(ct);
+    int valid_cap_num = get_cap_info(ct->stack, ct->stack_size);
+    int dirty_page_num = stack_dirty_page_update(ct);
 
     int fd3 = open("stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd3 == -1) {
@@ -289,7 +303,7 @@ int cvm_dumping() {
     printf("capture snapshot of %d in %f, ", cid, (now - then) / 1000.0);
 #endif
 
-    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
     resume_thread();
     return 0;
 }

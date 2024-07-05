@@ -1015,13 +1015,19 @@ int main(int argc, char *argv[]) {
 			
 		} else if(strcmp("-b", *argv) == 0 || strcmp("--backup", *argv) == 0) {
 			skip_argc += 2;
+			yaml_cfg = *++argv;
+			printf("Backup using yaml.cfg = %s\n", yaml_cfg);
+
 			is_master = false;
 			backup_valid_flag = true;
 			//test_network_server();
 			backup_memory_init();
 			backup_network_setup();
-			backup_server();
-			yaml_cfg = "musl-uni-hello.yaml";
+			int ret = backup_server();
+			if(ret == -1) {
+				return 0;
+			}
+			//yaml_cfg = "musl-uni-hello.yaml";
 			resume_flag_x = RESUME_FROM_MEMORY;
 			break;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {

@@ -592,6 +592,10 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 #endif
 #else
 	case 13:
+		if(is_master & backup_valid_flag) {
+			kill_backup();
+			sleep(2);
+		}
 		destroy_carrie_thread(ct->sbox->threads, 0);
 		break;
 	case 200:

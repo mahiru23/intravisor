@@ -39,10 +39,10 @@ void thread_get_context(void *argv) {
     }
 
     struct itimerval timer;
-    timer.it_value.tv_sec = HEARTBEAT_TIMEOUT;
-    timer.it_value.tv_usec = 0;
-    timer.it_interval.tv_sec = HEARTBEAT_TIMEOUT;
-    timer.it_interval.tv_usec = 0;
+    timer.it_value.tv_sec = HEARTBEAT_TIMEOUT_SEC;
+    timer.it_value.tv_usec = HEARTBEAT_TIMEOUT_USEC;
+    timer.it_interval.tv_sec = HEARTBEAT_TIMEOUT_SEC;
+    timer.it_interval.tv_usec = HEARTBEAT_TIMEOUT_USEC;
     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
         perror("setitimer");
         return ;
@@ -104,18 +104,8 @@ void *__capability invalid_to_valid(void *__capability elem) {
 }
 
 void set_cap_info(void *stack, size_t size) {
-
     uintcap_t *stack_ptr = (uintcap_t *)(stack);
     uintcap_t *ptr = (uintcap_t *)(stack);
-    int elem_len = sizeof(uintcap_t *) * 2; // cap = sizeof(void *)*2
-
-#if DEBUG
-    printf("size: %d\n", size);
-    printf("elem_len: %d\n", elem_len);
-    printf("check cap nums: %d\n", size / elem_len);
-#endif
-
-    int sum_cap = 0;
     for (int i=0; i<stack_cap_tags_sparse_now_length; i++) {
         int pos = stack_cap_tags_sparse[i];
         if(cheri_getperm((void *__capability)(stack_ptr[pos])) == 0) {
@@ -125,29 +115,7 @@ void set_cap_info(void *stack, size_t size) {
         void * __capability valid_cap;
         valid_cap = invalid_to_valid((void *__capability)(stack_ptr[pos]));
         ptr[pos] = valid_cap;
-        sum_cap++;
     }
-
-    /*for (size_t i = 0; i < size / elem_len; ++i) {
-        if (stack_cap_tags[i] == 1) {
-            unsigned long here_pos = (unsigned long)stack + i*sizeof(void *)*2;
-            //printf("here_pos: %lx\n", here_pos);
-            if(cheri_getperm((void *__capability)(stack_ptr[i])) == 0) {
-                // valid_cap may crash here occasionally (but i dont know why)
-                // occasional error, unstable munmap, manually disable
-                printf("set_cap_info error: perm = 0 !!!!!\n\n\n\n\n");
-                continue;
-                //CHERI_CAP_PRINT((void *__capability)(stack_ptr[i]));
-                //exit(-1);
-            }
-            void * __capability valid_cap;
-            valid_cap = invalid_to_valid((void *__capability)(stack_ptr[i]));
-            ptr[i] = valid_cap;
-            sum_cap++;
-        }
-    }*/
-
-    printf("sum_cap: %d\n", sum_cap);
 }
 
 void thread_resume(int resume_flag) {
@@ -223,6 +191,7 @@ void thread_resume(int resume_flag) {
     printf("read registers end\n");
 #endif
 
+    ctx.kernel_debug = DEBUG;
     cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
 

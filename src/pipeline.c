@@ -114,8 +114,8 @@ int test_network_server() {
     }
 
     struct timeval timeout;
-    timeout.tv_sec = DISCONNECTION_TIMEOUT;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = DISCONNECTION_TIMEOUT_SEC;
+    timeout.tv_usec = DISCONNECTION_TIMEOUT_USEC;
 
     if (setsockopt(new_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
         perror("setsockopt failed");
@@ -349,8 +349,8 @@ int backup_network_setup() {
     printf("backup_network_setup, accept connection from master\n");
 
     struct timeval timeout;
-    timeout.tv_sec = DISCONNECTION_TIMEOUT;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = DISCONNECTION_TIMEOUT_SEC;
+    timeout.tv_usec = DISCONNECTION_TIMEOUT_USEC;
 
     if (setsockopt(new_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
         perror("setsockopt failed");
@@ -373,23 +373,26 @@ int backup_network_setup() {
 // backup event loop
 int backup_server_impl();
 int backup_server() {
-
     async_pipeline_backup_init();
     int ret = 0;
     while(1) {
 #if ASYNC_PIPELINE
-        printf("async_backup_server_impl start\n\n\n\n\n");
         ret = async_backup_server_impl();
 #elif
         ret = backup_server_impl();
 #endif
         printf("backup_server_impl loop, ret: %d\n", ret);
         if(ret == -1) {
-            break;
+            printf("master crashed, backup -> master\n");
+            backup_failure_handler();
+            return 0;
+        }
+        if(ret == -2) {
+            printf("exit backup successfully!\n");
+            return -1;
         }
     }
-    printf("master crashed, backup -> master\n\n\n\n\n");
-    return 0;
+    return -1;
 }
 
 // update local snapshot

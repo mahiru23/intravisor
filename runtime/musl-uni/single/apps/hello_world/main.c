@@ -25,6 +25,8 @@
 
 #define MSGX "cons, file test success! \n"
 
+#define MSGY "1"
+
 void app_main() {
     printf("hello world here! \n ");
 
@@ -64,17 +66,28 @@ void app_main() {
 
     printf("write test over \n");
 
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
 
 	int i = 0;
-    while(i<17) {
+    while(i<100000) {
 		i++;
 		printf(" times: %d \n ", i);
-        sleep(1);
-        //c_out_3(30, MSG, (long)sizeof(MSG), 0);
-		if(i==10000000) {
-			i=1;
+        //sleep(1);
+        
+		if(i%1000 == 0) {
+            if (host_write(fd, MSGY, (long)sizeof(MSGY)) == -1) {
+                printf("write error MSGY\n");
+                return;
+            }
 		}
     }
+
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    printf("finish test runtime in %f, ",(now - then) / 1000.0);
+
 
     if (host_write(fd, MSGX, (long)sizeof(MSGX)) == -1) {
         printf("write error 3\n");
@@ -83,6 +96,9 @@ void app_main() {
 
     c_out_3(1, MSG, (long)sizeof(MSG), 0);
     printf("out success! \n ");
+
+    //host_exit(0);
+
     return ;
 
 

@@ -1,5 +1,7 @@
 #include "monitor.h"
 
+int full_copy_flag = 0;
+
 queue master_event_queue;
 queue backup_event_queue;
 
@@ -40,14 +42,14 @@ void async_pipeline_master_impl() {
         FD_SET(global_socket, &writeset);
 
         struct timeval tm; // would update by select
-        tm.tv_sec = 1;
-        tm.tv_usec = 0;
+        tm.tv_sec = QUEUE_TIMEOUT_SEC;
+        tm.tv_usec = QUEUE_TIMEOUT_USEC;
 
         int select_ret;
         // may need queue lock?????
         if(que->top == NULL) { // queue empty
             //select_ret = select(FD_SETSIZE, &readset, 0, 0, &tm);
-            usleep(300);
+            usleep(QUEUE_EMPTY_TIMEOUT_USEC);
             continue;
         }
         else {
@@ -125,7 +127,6 @@ void init_vm_event(struct vm_event* v, long t5, long a0, long a1, long a2, long 
 /*file & network ops, async send*/
 /*use queue/node in monitor, i dont know whether works, need more test*/
 void send_to_backup_op(long t5, long a0, long a1, long a2, long a3) {
-
     queue *que = &master_event_queue;
     node *n = (node *)malloc(sizeof(node));
     if (n == NULL) {
@@ -191,17 +192,28 @@ void send_to_backup_op(long t5, long a0, long a1, long a2, long a3) {
         printf("sender write_buffer: %s\n\n\n\n", write_buffer);
         printf("sender (void *)(a1): %s\n\n\n\n", (a1));
 
-        /*send_all(global_socket, &type, sizeof(type));
-        send_all(global_socket, v, sizeof(struct vm_event));
-        send_all(global_socket, a1, a2);
-        free(v);
-        pop_back(que);*/
 		break;
     }
 	default:
 		printf("send_to_backup_op: unknown t5 %d\n", (int) t5);
 		while(1) ;
     }
+}
+
+void kill_backup() {
+    queue *que = &master_event_queue;
+    node *n = (node *)malloc(sizeof(node));
+    if (n == NULL) {
+        perror("malloc node error");
+        exit(EXIT_FAILURE);
+    }
+
+    n->id = master_checkpoint;
+    n->type = KILL_BACKUP;
+    n->len = 0;
+    n->payload = NULL;
+    master_checkpoint++;
+    push_back(que, n);
 }
 
 void async_heartbeat() {
@@ -469,7 +481,7 @@ int async_backup_server_impl() {
     }
 
     if(recv_all(global_socket, n, sizeof(node)) == -1) {
-        backup_failure_handler();
+        //backup_failure_handler();
         return -1;
     }
 
@@ -484,7 +496,7 @@ int async_backup_server_impl() {
         if(n->payload != NULL) {
             char *write_buffer = (char *)malloc(n->len);
             if(recv_all(global_socket, write_buffer, n->len) == -1) {
-                backup_failure_handler();
+                //backup_failure_handler();
                 free(write_buffer);
                 return -1;
             }
@@ -501,7 +513,7 @@ int async_backup_server_impl() {
             exit(EXIT_FAILURE);
         }
         if(recv_all(global_socket, packet, snapshot_size) == -1) {
-            backup_failure_handler();
+            //backup_failure_handler();
             free(packet);
             return -1;
         }
@@ -510,6 +522,11 @@ int async_backup_server_impl() {
         save_snapshot_to_disk(packet);
         free(packet);
         free(n);
+    }
+    else if(n->type == KILL_BACKUP) { // finish backup
+        release_queue(que);
+        free(n);
+        return -2;
     }
     else {
         perror("async_backup_server_impl: error node type!\n\n\n\n\n");

@@ -500,10 +500,23 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
 /*async pipeline*/
 #define PORT 8080
-#define HEARTBEAT_TIMEOUT 5
-#define DISCONNECTION_TIMEOUT 15
+/*#define HEARTBEAT_TIMEOUT 5
+#define DISCONNECTION_TIMEOUT 15*/
+
+#define HEARTBEAT_TIMEOUT_SEC 5
+#define HEARTBEAT_TIMEOUT_USEC 0
+
+#define DISCONNECTION_TIMEOUT_SEC 15
+#define DISCONNECTION_TIMEOUT_USEC 0
+
+#define QUEUE_TIMEOUT_SEC 1
+#define QUEUE_TIMEOUT_USEC 0
+
+#define QUEUE_EMPTY_TIMEOUT_USEC 300
+
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
+extern int full_copy_flag;
 
 extern int global_socket;
 extern int master_checkpoint; // now checkpoint auto increment, timestamp may be better?
@@ -532,6 +545,7 @@ void async_pipeline_master_impl();
 #define SNAPSHOT 1
 #define FILE_OPS 2
 #define SOCKET_OPS 3
+#define KILL_BACKUP 4
 
 // event queue
 extern queue master_event_queue;
@@ -550,3 +564,9 @@ extern char *backup_stack_buffer;
 // 32768 now?
 #define STACK_CAP_LINE STACK_SIZE/(sizeof(uintcap_t *)*2)
 #define min(a, b) ((a) < (b) ? (a) : (b))
+
+#define DEBUG 0
+
+
+
+
