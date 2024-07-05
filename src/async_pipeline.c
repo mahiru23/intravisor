@@ -1,9 +1,5 @@
 #include "monitor.h"
 
-
-/*int global_send_buffer_size;
-char* global_send_buffer;*/
-
 queue master_event_queue;
 queue backup_event_queue;
 
@@ -12,16 +8,17 @@ void async_pipeline_master_init() {
 	int ret = -1;
 	pthread_t id;
 
-    /*global_send_buffer_size = (1<<24); // 16 MB
-    global_send_buffer = (char *)malloc(global_send_buffer_size);
-    if (global_send_buffer == NULL) {
-        perror("malloc global_send_buffer");
+    stack_cap_tags_sparse_size = 200;
+    stack_cap_tags_sparse_now_length = 0;
+    stack_cap_tags_sparse = (int *)malloc(stack_cap_tags_sparse_size * sizeof(int)); // init with 200 cap, will increase
+    if (stack_cap_tags_sparse == NULL) {
+        perror("malloc stack_cap_tags_sparse error");
         exit(EXIT_FAILURE);
-    }*/
+    }
 
 	ret = pthread_create(&id, NULL, (void *)async_pipeline_master_impl, NULL); 
 	if(ret != 0) {
-        perror("pthread_create global_send_buffer");
+        perror("pthread_create async_pipeline_master_impl");
 	}
 }
 
@@ -223,14 +220,14 @@ void async_heartbeat() {
 }
 
 // master -> backup
-int async_master_to_backup(struct c_thread *ct, int dirty_page_num) {
+int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_cap_num) {
 
     struct files_detail packet_index;
     packet_index.context_len = get_filesize("context_dump.bin");
     packet_index.capfiles_len = get_filesize("capfiles_dump.bin");
     packet_index.dirty_page_map_len = sizeof(dirty_page_map);
     packet_index.stack_page_len = dirty_page_num * PAGE_SIZE;
-    packet_index.stack_cap_tags_len = sizeof(stack_cap_tags);
+    packet_index.stack_cap_tags_len = valid_cap_num * sizeof(int);
 
     int len =   sizeof(packet_index) + \
                 packet_index.context_len + \ 
@@ -238,10 +235,6 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num) {
                 packet_index.dirty_page_map_len + \
                 packet_index.stack_page_len + \
                 packet_index.stack_cap_tags_len;
-
-    /*if(heartbeat(len) == -1) {
-        master_failure_handler();
-    }*/
 
     unsigned long pos = 0;
     char *packet = (char *)malloc(len*sizeof(char));
@@ -254,14 +247,12 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num) {
     memcpy((packet+pos), (void *)(&packet_index), sizeof(packet_index));
     pos += sizeof(packet_index);
 
-
     // thread context
     int fd_context = open("context_dump.bin", O_RDONLY);
     if (fd_context == -1) {
         perror("open");
         exit(EXIT_FAILURE);
     }
-
     size_t bytes_read = read(fd_context, (packet+pos), packet_index.context_len);
     if (bytes_read != packet_index.context_len) {
         perror("read");
@@ -276,7 +267,6 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num) {
         perror("open");
         exit(EXIT_FAILURE);
     }
-
     bytes_read = read(fd, (packet+pos), packet_index.capfiles_len);
     if (bytes_read != packet_index.capfiles_len) {
         perror("read");
@@ -297,7 +287,7 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num) {
     }
 
     // tag_valid (todo: run-length-code?)
-    memcpy((packet+pos), (void *)(stack_cap_tags), packet_index.stack_cap_tags_len);
+    memcpy((packet+pos), (void *)(stack_cap_tags_sparse), packet_index.stack_cap_tags_len);
 
     queue *que = &master_event_queue;
     node *n = (node *)malloc(sizeof(node));
@@ -315,6 +305,15 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num) {
     return 0;
 }
 
+void async_pipeline_backup_init() {
+    stack_cap_tags_sparse_size = 200;
+    stack_cap_tags_sparse_now_length = 0;
+    stack_cap_tags_sparse = (int *)malloc(stack_cap_tags_sparse_size * sizeof(int)); // init with 200 cap, will increase
+    if (stack_cap_tags_sparse == NULL) {
+        perror("malloc stack_cap_tags_sparse error");
+        exit(EXIT_FAILURE);
+    }
+}
 
 int release_queue(queue* que) {
 	while(que->top != NULL) {
@@ -378,7 +377,7 @@ int release_queue(queue* que) {
 
 // TODO: store in memory
 // sync to disk
-int save_snapshot(queue *que, node *n, char *packet) {
+int save_snapshot_to_disk(char *packet) {
     int pos = 0;
     struct files_detail packet_index;
     memcpy((void *)(&packet_index), (packet+pos), sizeof(packet_index));
@@ -387,7 +386,7 @@ int save_snapshot(queue *que, node *n, char *packet) {
     pos += snapshot_to_file("context_dump.bin", (packet + pos), packet_index.context_len, 0);
     pos += snapshot_to_file("capfiles_dump.bin", (packet + pos), packet_index.capfiles_len, 0);
 
-    memcpy((void *)(&dirty_page_map), (packet+pos), packet_index.dirty_page_map_len);
+    memcpy((void *)(dirty_page_map), (packet+pos), packet_index.dirty_page_map_len);
     pos += packet_index.dirty_page_map_len;
 
     int get_page_num = 0;
@@ -399,7 +398,60 @@ int save_snapshot(queue *que, node *n, char *packet) {
 
     pos += snapshot_to_file("stack_cap_tags.bin", (packet + pos), packet_index.stack_cap_tags_len, 0);
 
-    printf("save, over\n");
+    printf("save_snapshot_to_disk, over\n");
+
+    return 0;
+}
+
+int save_snapshot_to_memory(char *packet) {
+    int pos = 0;
+    struct files_detail packet_index;
+    memcpy((void *)(&packet_index), (packet+pos), sizeof(packet_index));
+    pos += sizeof(packet_index);
+
+    memcpy((void *)backup_context_buffer, (packet + pos), packet_index.context_len);
+    pos += packet_index.context_len;
+
+    if(packet_index.capfiles_len > malloc_usable_size(backup_capfiles_buffer)) {
+        char *new_backup_capfiles_buffer = realloc(backup_capfiles_buffer, packet_index.capfiles_len);
+        if(new_backup_capfiles_buffer == NULL) {
+            perror("realloc backup_capfiles_buffer");
+            free(backup_capfiles_buffer);
+            exit(EXIT_FAILURE);
+        }
+        backup_capfiles_buffer = new_backup_capfiles_buffer;
+    }
+    memcpy((void *)backup_capfiles_buffer, (packet + pos), packet_index.capfiles_len);
+    pos += packet_index.capfiles_len;
+
+    memcpy((void *)(dirty_page_map), (packet+pos), packet_index.dirty_page_map_len);
+    pos += packet_index.dirty_page_map_len;
+
+    int get_page_num = 0;
+    for(int i=0;i<PAGE_NUM;i++) {
+        if (dirty_page_map[i] & MINCORE_MODIFIED) {
+            memcpy((void *)(backup_stack_buffer + i*PAGE_SIZE), (packet + pos), PAGE_SIZE);
+            pos += PAGE_SIZE;
+        }
+    }
+
+    stack_cap_tags_sparse_now_length = packet_index.stack_cap_tags_len/sizeof(int);
+    if(stack_cap_tags_sparse_now_length > stack_cap_tags_sparse_size) {
+        int new_size = min(stack_cap_tags_sparse_now_length + 200, STACK_CAP_LINE);
+        char *new_stack_cap_tags_sparse = realloc(stack_cap_tags_sparse, new_size * sizeof(int));
+        if(new_stack_cap_tags_sparse == NULL) {
+            perror("realloc backup_capfiles_buffer");
+            free(stack_cap_tags_sparse);
+            exit(EXIT_FAILURE);
+        }
+        stack_cap_tags_sparse = new_stack_cap_tags_sparse;
+        stack_cap_tags_sparse_size = new_size;
+    }
+
+    memcpy((void *)stack_cap_tags_sparse, (packet+pos), packet_index.stack_cap_tags_len);
+    pos += packet_index.stack_cap_tags_len;
+
+    printf("save_snapshot_to_memory, over\n");
 
     return 0;
 }
@@ -425,7 +477,6 @@ int async_backup_server_impl() {
     printf("async_backup_server_impl recv_all node \n\n\n\n\n");
 
     if(n->type == HEARTBEAT) { // heartbeat (not checkpoint)
-        //release_queue(que);
         return 0;
     }
     else if(n->type == FILE_OPS || n->type == SOCKET_OPS) {
@@ -455,7 +506,8 @@ int async_backup_server_impl() {
             return -1;
         }
         release_queue(que);
-        save_snapshot(que, n, packet);
+        save_snapshot_to_memory(packet);
+        save_snapshot_to_disk(packet);
         free(packet);
         free(n);
     }
@@ -467,5 +519,32 @@ int async_backup_server_impl() {
 
     return 0;
 }
+
+char *backup_context_buffer;
+char *backup_capfiles_buffer;
+char *backup_stack_buffer;
+
+void backup_memory_init() {
+    backup_context_buffer = (char *)malloc(sizeof(struct thread_snapshot) + REG_NUM * sizeof(int));
+    if(backup_context_buffer == NULL) {
+        perror("malloc backup_context_buffer");
+        exit(EXIT_FAILURE);
+    }
+
+    backup_capfiles_buffer = (char *)malloc(get_capfiles_base_size());
+    if(backup_capfiles_buffer == NULL) {
+        perror("malloc backup_capfiles_buffer");
+        exit(EXIT_FAILURE);
+    }
+
+    backup_stack_buffer = (char *)malloc(STACK_SIZE);
+    if(backup_stack_buffer == NULL) {
+        perror("malloc backup_stack_buffer");
+        exit(EXIT_FAILURE);
+    }
+}
+
+
+
 
 

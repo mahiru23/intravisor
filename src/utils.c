@@ -481,10 +481,52 @@ int get_dirty_page_num(unsigned long FILE_SIZE, int pages, char *addr) {
             dirty_pages++;
         }
     }
+#if DEBUG
     printf("Total dirty pages: %d\n", dirty_pages);
+#endif
     free(vec);
     return dirty_pages;
 }
+
+
+/*may not use, clear at release version? need more test to choose compression algorithm*/
+// to compress stack_cap_tags
+int run_length_encode(int *arr, int size, int* encode_arr) {
+	int cur_num = arr[0];
+	int acc = 0;
+	for(int i=0; i<size; i++) {
+		if(arr[i] == cur_num) {
+			acc++;
+		}
+		else {
+			//encode_arr.push(pair<int, int>(cur_num, acc))
+			cur_num = arr[i];
+			acc = 1;
+		}
+	}
+	//encode_arr.push(pair<int, int>(cur_num, acc))
+	// return encode_arr size
+}
+
+int run_length_decode(int *arr, int size, int* decode_arr) {
+	// return decode_arr size
+}
+
+// to compress stack_cap_tags
+int sparse_encode(int *arr, int size, int* encode_arr, int encode_size) {
+
+	
+	int acc = 0;
+	for(int i=0; i<size; i++) {
+		if(arr[i] == 1) {
+			acc++;
+			encode_arr[acc] = i;
+		}
+	}
+
+
+}
+
 
 
 

@@ -26,7 +26,7 @@ void print_stack_info() {
 
 void thread_get_context(void *argv) {
     pthread_detach(pthread_self());
-    int cid = 16; // get or calculate
+    int cid = global_cid;
     struct c_thread *ct = cvms[cid].threads;
 
     struct sigaction sa;
@@ -51,12 +51,9 @@ void thread_get_context(void *argv) {
     printf("3 pthread_getthreadid_np(): %d\n", pthread_getthreadid_np());
     printf("3 threadid: %d\n", threadid);
 
+    //waiting for signal
     while(1) {
-        // get info
         sleep(1);
-        /*printf("cvm_dumping 1 ---------------------------------------\n");
-        cvm_dumping(cid);
-        printf("cvm_dumping 2 ---------------------------------------\n");*/
     }
 }
 
@@ -119,8 +116,19 @@ void set_cap_info(void *stack, size_t size) {
 #endif
 
     int sum_cap = 0;
-    for (size_t i = 0; i < size / elem_len; ++i) {
-        
+    for (int i=0; i<stack_cap_tags_sparse_now_length; i++) {
+        int pos = stack_cap_tags_sparse[i];
+        if(cheri_getperm((void *__capability)(stack_ptr[pos])) == 0) {
+            printf("set_cap_info error: perm = 0 !!!!!\n\n\n\n\n");
+            continue;
+        }
+        void * __capability valid_cap;
+        valid_cap = invalid_to_valid((void *__capability)(stack_ptr[pos]));
+        ptr[pos] = valid_cap;
+        sum_cap++;
+    }
+
+    /*for (size_t i = 0; i < size / elem_len; ++i) {
         if (stack_cap_tags[i] == 1) {
             unsigned long here_pos = (unsigned long)stack + i*sizeof(void *)*2;
             //printf("here_pos: %lx\n", here_pos);
@@ -137,15 +145,19 @@ void set_cap_info(void *stack, size_t size) {
             ptr[i] = valid_cap;
             sum_cap++;
         }
-    }
+    }*/
+
     printf("sum_cap: %d\n", sum_cap);
 }
 
-void thread_resume(void *argv) {
-
+void thread_resume(int resume_flag) {
     pthread_detach(pthread_self());
 
-    int cid = 16; // get or calculate
+#if DEBUG
+    printf("resume_flag: %d\n", resume_flag);
+#endif
+
+    int cid = global_cid;
     struct c_thread *ct = cvms[cid].threads;
     pid_t pid = getpid();
     void * __capability cap_ptr;
@@ -161,30 +173,39 @@ void thread_resume(void *argv) {
 	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
 #endif
 
-    int tag_array[33];
-    int fd = open("context_dump.bin", O_RDWR);
-    if (fd == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-    if (read(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
-        perror("write");
+    int tag_array[REG_NUM];
+
+    if(resume_flag == RESUME_FROM_SNAPSHOT) {
+        int fd = open("context_dump.bin", O_RDWR);
+        if (fd == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (read(fd, &ctx, sizeof(struct thread_snapshot)) == -1) {
+            perror("write");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        if (read(fd, &tag_array, sizeof(tag_array)) == -1) {
+            perror("write");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
         close(fd);
-        exit(EXIT_FAILURE);
+        host_cap_file_resume();
     }
-    if (read(fd, &tag_array, sizeof(tag_array)) == -1) {
-        perror("write");
-        close(fd);
-        exit(EXIT_FAILURE);
+    else {
+        memcpy((void *)(&ctx), backup_context_buffer, sizeof(struct thread_snapshot));
+        memcpy((void *)(&tag_array), (backup_context_buffer + sizeof(struct thread_snapshot)), sizeof(tag_array));
+        host_cap_file_resume_from_memory();
     }
-    close(fd);
 
 #if DEBUG
-        printf("cvm_resume thread context end\n");
+    printf("cvm_resume thread context end\n");
 #endif
 
     uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
-    for(int i=0;i<33;i++) {
+    for(int i=0;i<REG_NUM;i++) {
         void *__capability elem = (void *__capability)(ptr[i]);
         #if DEBUG
             printf("[%d] origin tag: %d\n", i, tag_array[i]);
@@ -198,61 +219,80 @@ void thread_resume(void *argv) {
         ptr[i] = valid_cap;
     }
 
-    #if DEBUG
-            printf("read registers end\n");
-    #endif
-
-    //sleep(5);
-
-    host_cap_file_resume();
+#if DEBUG
+    printf("read registers end\n");
+#endif
 
     cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-    #if DEBUG
-            CHERI_CAP_PRINT(cap_ptr); 
-    #endif
 
-    int fd_stack = open("stack_dump.bin", O_RDWR);
-    if (fd_stack == -1) {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
+#if DEBUG
+    CHERI_CAP_PRINT(cap_ptr); 
+#endif
 
-    char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
-    if (addr == MAP_FAILED) {
-        perror("mmap ct->stack error");
+    if(resume_flag == RESUME_FROM_SNAPSHOT) {
+        int fd_stack = open("stack_dump.bin", O_RDWR);
+        if (fd_stack == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_stack, 0);
+        if (addr == MAP_FAILED) {
+            perror("mmap ct->stack error");
+            close(fd_stack);
+            exit(EXIT_FAILURE);
+        }
         close(fd_stack);
-        exit(EXIT_FAILURE);
-    }
 
-    int fd3 = open("stack_cap_tags.bin", O_RDWR);
-    if (fd3 == -1) {
-        perror("open stack_cap_tags.bin error");
-        exit(EXIT_FAILURE);
-    }
-    if (read(fd3, stack_cap_tags, sizeof(stack_cap_tags)) == -1) {
-        perror("write stack_cap_tags");
+        stack_cap_tags_sparse_size = get_filesize("stack_cap_tags.bin")/sizeof(int);
+        stack_cap_tags_sparse_now_length = stack_cap_tags_sparse_size;
+        stack_cap_tags_sparse = (int *)malloc(stack_cap_tags_sparse_size* sizeof(int));
+        if(stack_cap_tags_sparse == NULL) {
+            perror("malloc stack_cap_tags_sparse");
+            exit(EXIT_FAILURE);
+        }
+
+        int fd3 = open("stack_cap_tags.bin", O_RDWR);
+        if (fd3 == -1) {
+            perror("open stack_cap_tags.bin error");
+            exit(EXIT_FAILURE);
+        }
+        if (read(fd3, (void *)stack_cap_tags_sparse, stack_cap_tags_sparse_size* sizeof(int)) == -1) {
+            perror("read stack_cap_tags");
+            close(fd3);
+            exit(EXIT_FAILURE);
+        }
         close(fd3);
-        exit(EXIT_FAILURE);
+
+    }
+    else {
+        char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
+        if (addr == MAP_FAILED) {
+            perror("mmap ct->stack error");
+            exit(EXIT_FAILURE);
+        }
+        memcpy((void *)addr, backup_stack_buffer, ct->stack_size);
     }
 
     set_cap_info(ct->stack, ct->stack_size);
-
-    resume_from_snapshot(pid, threadid, cap_ptr);
-
+    resume_from_snapshot(pid, threadid, cap_ptr); // syscall
     printf("resume_from_snapshot over\n");
 }
 
 // single thread
-void context_test(int no) {
+void capture_or_resume(int no) {
     print_stack_info();
 	int ret = -1;
 	pthread_t timerid;
 
-    if(no == 1)
-	ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 
-    if(no == 2)
-	ret = pthread_create(&timerid, NULL, (void *)thread_resume, NULL); 
+    if(no == NO_RESUME)
+	    ret = pthread_create(&timerid, NULL, (void *)thread_get_context, NULL); 
+    else if(no == RESUME_FROM_SNAPSHOT || no == RESUME_FROM_MEMORY)
+	    ret = pthread_create(&timerid, NULL, (void *)thread_resume, (void *)(no));
+    else {
+        printf("capture_or_resume failed! error no:%d\n", no);
+        exit(-1);
+    }
 
 	if(ret != 0)
 	{

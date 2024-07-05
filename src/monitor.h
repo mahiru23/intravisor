@@ -62,7 +62,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h> 
 #include <sys/select.h>
-
+#include <math.h>
 
 #include "intravisor.h"
 #include <arch.h>
@@ -188,8 +188,6 @@ struct c_thread {
 	struct s_box *sbox;
 
 	struct stream_caps_store *cs;
-
-	//int resume_flag;
 
 };
 
@@ -476,58 +474,34 @@ void __capability *mmap_cvm_data(unsigned long, size_t len, int prot, int flags,
 int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, void *(*start_routine)(void *), void *arg);
 
 
-// timer
-// copy from ..., just test here
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long u64;
-
-typedef void (*timer_callback)();
-
-typedef struct
-{
-	u32 interval_time;
-	timer_callback func; 
-}timer_para;
-
-void timer_callback_func();
-int timer_create_test(timer_para *time_val);
-int start_timers_context();
-void print_thread_attr();
-int ss_just_test();
+// snapshot
+extern void *__capability global_sealcap;
 extern lwpid_t threadid;
-
-
-
-
+extern int global_cid;
 extern int replica_flag;
-extern void * __capability global_cap_ptr;
+
+#define REG_NUM 33
 #define SUSPEND_THREAD -1
 #define RESUEM_THREAD -2
 #define CAPTURE_SNAPSHOT -6
-int cvm_dumping(int cid);
+int cvm_dumping();
 
-extern bool stack_cap_tags[32768];
-
-extern void *__capability global_sealcap;
-
+//extern bool stack_cap_tags[32768];
 extern pthread_mutex_t mutex;
 extern pthread_cond_t cond;
 extern int is_paused;
-extern pthread_t global_pid;
-
-
 
 /*identify state machine*/
 extern bool master_valid_flag;
 extern bool backup_valid_flag;
 extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
+#define ANALYSE 1
+
+/*async pipeline*/
 #define PORT 8080
 #define HEARTBEAT_TIMEOUT 5
 #define DISCONNECTION_TIMEOUT 15
-//int send_to_backup();
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
 
@@ -543,26 +517,36 @@ struct files_detail {
     int stack_cap_tags_len;
 };
 
-#define ANALYSE 1
 
-/*async pipeline*/
 #define ASYNC_PIPELINE 1
-extern int global_send_buffer_size;
-extern char* global_send_buffer;
+extern int *stack_cap_tags_sparse;
+extern int stack_cap_tags_sparse_size;
+extern int stack_cap_tags_sparse_now_length;
 
 void init_async_pipeline_master();
 void async_pipeline_master_impl();
 
-
-// event queue
-
 // packet type
 // -1 heartbeat, 1 snapshot, 2 file_ops, 3 socket_ops
-
 #define HEARTBEAT -1
 #define SNAPSHOT 1
 #define FILE_OPS 2
 #define SOCKET_OPS 3
 
+// event queue
 extern queue master_event_queue;
 extern queue backup_event_queue;
+
+// resume from backup memory
+extern char *backup_context_buffer;
+extern char *backup_capfiles_buffer;
+extern char *backup_stack_buffer;
+
+// resume_flag
+#define NO_RESUME 0
+#define RESUME_FROM_SNAPSHOT 1
+#define RESUME_FROM_MEMORY 2
+
+// 32768 now?
+#define STACK_CAP_LINE STACK_SIZE/(sizeof(uintcap_t *)*2)
+#define min(a, b) ((a) < (b) ? (a) : (b))

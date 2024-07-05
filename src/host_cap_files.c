@@ -194,5 +194,30 @@ void host_cap_file_resume() {
     pthread_mutex_unlock(&cf_store_lock);
 }
 
+void host_cap_file_resume_from_memory() {
+    pthread_mutex_lock(&cf_store_lock);
+	int pos = 0;
 
+	memcpy(cap_files, (backup_capfiles_buffer + pos), MAX_CF_FILES * sizeof(struct cap_files_store_s));
+	pos += MAX_CF_FILES * sizeof(struct cap_files_store_s);
+
+	for(int i = 0; i < MAX_CF_FILES; i++) {
+		if(cap_files[i].ptr == 0)
+			continue;
+
+        void *new_ptr = malloc(cap_files[i].size);
+		memcpy(new_ptr, (backup_capfiles_buffer + pos), cap_files[i].size);
+		pos += cap_files[i].size;
+        cap_files[i].ptr = new_ptr;
+
+		// TODO: resume at origin position
+		if(cap_files[i].loc != NULL)
+        	host_reg_cap(cap_files[i].ptr, cap_files[i].size, cap_files[i].loc);
+	}
+    pthread_mutex_unlock(&cf_store_lock);
+}
+
+int get_capfiles_base_size() {
+	return MAX_CF_FILES * sizeof(struct cap_files_store_s);
+}
 

@@ -213,14 +213,14 @@ int master_network_setup() {
 }
 
 // master -> backup
-int master_to_backup(struct c_thread *ct, int dirty_page_num) {
+int master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_cap_num) {
 
     struct files_detail packet_index;
     packet_index.context_len = get_filesize("context_dump.bin");
     packet_index.capfiles_len = get_filesize("capfiles_dump.bin");
     packet_index.dirty_page_map_len = sizeof(dirty_page_map);
     packet_index.stack_page_len = dirty_page_num * PAGE_SIZE;
-    packet_index.stack_cap_tags_len = sizeof(stack_cap_tags);
+    packet_index.stack_cap_tags_len = valid_cap_num * sizeof(int);
 
     int len =   sizeof(packet_index) + \
                 packet_index.context_len + \ 
@@ -287,7 +287,7 @@ int master_to_backup(struct c_thread *ct, int dirty_page_num) {
     }
 
     // tag_valid (todo: run-length-code?)
-    memcpy((packet+pos), (void *)(stack_cap_tags), packet_index.stack_cap_tags_len);
+    memcpy((packet+pos), (void *)(stack_cap_tags_sparse), packet_index.stack_cap_tags_len);
 
     if(send_all(global_socket, packet, len) == -1) {
         master_failure_handler();
@@ -373,22 +373,20 @@ int backup_network_setup() {
 // backup event loop
 int backup_server_impl();
 int backup_server() {
+
+    async_pipeline_backup_init();
     int ret = 0;
     while(1) {
-
 #if ASYNC_PIPELINE
         printf("async_backup_server_impl start\n\n\n\n\n");
         ret = async_backup_server_impl();
-        
 #elif
         ret = backup_server_impl();
 #endif
-
         printf("backup_server_impl loop, ret: %d\n", ret);
         if(ret == -1) {
             break;
         }
-
     }
     printf("master crashed, backup -> master\n\n\n\n\n");
     return 0;
@@ -430,7 +428,7 @@ int backup_server_impl() {
     pos += snapshot_to_file("context_dump.bin", (packet + pos), packet_index.context_len, 0);
     pos += snapshot_to_file("capfiles_dump.bin", (packet + pos), packet_index.capfiles_len, 0);
 
-    memcpy((void *)(&dirty_page_map), (packet+pos), packet_index.dirty_page_map_len);
+    memcpy((void *)(dirty_page_map), (packet+pos), packet_index.dirty_page_map_len);
     pos += packet_index.dirty_page_map_len;
 
     int get_page_num = 0;

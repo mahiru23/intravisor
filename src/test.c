@@ -145,7 +145,7 @@ void check_dirty_pages(struct c_thread *ct) {
     
     printf("Total dirty pages2: %d\n", dirty_pages2);
 
-    //pthread_kill(thread_id, SIGCONT); // 恢复线程
+    //pthread_kill(thread_id, SIGCONT);
 }
 
 
@@ -158,7 +158,6 @@ void mmap_file_test(struct c_thread *ct, int resume_flag) {
 
     addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
     if (addr == MAP_FAILED) {
-        //close(fd);
         perror("mmap");
         exit(EXIT_FAILURE);
     }

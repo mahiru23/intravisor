@@ -4,13 +4,16 @@
 #define DEBUG 1
 
 int replica_flag = 0;
-void * __capability global_cap_ptr;
-bool stack_cap_tags[32768]; // max_stack_size = 0x80000
+//bool stack_cap_tags[32768]; // max_stack_size = 0x80000
+
+int *stack_cap_tags_sparse = NULL;
+int stack_cap_tags_sparse_size;
+int stack_cap_tags_sparse_now_length;
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int is_paused = 0;
-pthread_t global_pid;
+
 
 void pause_thread() {
     pthread_mutex_lock(&mutex);
@@ -31,7 +34,7 @@ int is_capability(void *ptr) {
     return res;
 }
 
-void get_cap_info(void *stack, size_t size) {
+int get_cap_info(void *stack, size_t size) {
     uintcap_t *stack_ptr = (uintcap_t *)(stack);
     int elem_len = sizeof(uintcap_t *) * 2; // cap = sizeof(void *)*2
 
@@ -41,23 +44,35 @@ void get_cap_info(void *stack, size_t size) {
     printf("check cap nums: %d\n", size / sizeof(uintcap_t *));
 #endif
 
-    memset(stack_cap_tags, 0, sizeof(stack_cap_tags));
-
+    memset(stack_cap_tags_sparse, 0, stack_cap_tags_sparse_size);
     int sum_cap = 0;
+
+    // bitmap -> sparse array
     for (size_t i = 0; i < size / elem_len; ++i) {
         if (is_capability(stack_ptr[i])) {
-            /*printf("cap_1: %d\n", i);
-            void *__capability elem = (void *__capability)(stack_ptr[i]);
-            CHERI_CAP_PRINT(elem);*/
-            stack_cap_tags[i] = 1;
+            if(sum_cap >= stack_cap_tags_sparse_size) { // extend tag array
+                int new_size = min(stack_cap_tags_sparse_size*2, STACK_CAP_LINE);
+                char *new_stack_cap_tags_sparse = realloc(stack_cap_tags_sparse, new_size * sizeof(int));
+                if(new_stack_cap_tags_sparse == NULL) {
+                    perror("realloc backup_capfiles_buffer");
+                    free(stack_cap_tags_sparse);
+                    exit(EXIT_FAILURE);
+                }
+                stack_cap_tags_sparse = new_stack_cap_tags_sparse;
+                stack_cap_tags_sparse_size = new_size;
+            }
+            stack_cap_tags_sparse[sum_cap] = i;
             sum_cap++;
         } else {
-            stack_cap_tags[i] = 0;
+            //stack_cap_tags[i] = 0;
+            ;
         }
     }
 #if DEBUG
     printf("sum_cap: %d\n", sum_cap);
 #endif
+    stack_cap_tags_sparse_now_length = sum_cap;
+    return sum_cap;
 }
 
 int write_to_stackfile(int fd, void *addr, int size, int page) {
@@ -109,15 +124,9 @@ void stack_dirty_page_update(struct c_thread *ct) {
 
     get_dirty_page_num(ct->stack_size, pages, ct->stack);
 
-    /*char *vec = (char *)malloc(pages);
-    if (vec == NULL) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }*/
     memset(dirty_page_map, 0, sizeof(dirty_page_map));
     if (mincore(ct->stack, ct->stack_size, dirty_page_map) == -1) {
         perror("mincore");
-        //free(vec);
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < pages; i++) {
@@ -125,48 +134,22 @@ void stack_dirty_page_update(struct c_thread *ct) {
             write_to_stackfile(fd, ct->stack+i*PAGE_SIZE, PAGE_SIZE, i);
         }
     }
-
-    //free(vec);
-
-    /*if (msync(ct->stack, ct->stack_size, MS_SYNC) == -1) {
-        perror("msync");
-        exit(EXIT_FAILURE);
-    }*/
-
     if (msync_manual(ct->stack, ct->stack_size, dirty_page_map_temp) == -1) {
-        perror("mincore");
-        //free(vec);
+        perror("msync_manual");
         exit(EXIT_FAILURE);
     }
-
-    printf("msync_manual\n");
-
-    get_dirty_page_num(ct->stack_size, pages, ct->stack);
-
-	/*size_t sealcap_size = sizeof(ct[0].sbox->box_caps.sealcap);
-
-#if __FreeBSD__
-	if(sysctlbyname("security.cheri.sealcap", &global_sealcap, &sealcap_size, NULL, 0) < 0) {
-		printf("sysctlbyname(security.cheri.sealcap)\n");
-		while(1) ;
-	}
-#else
-	printf("sysctlbyname security.cheri.sealcap is not implemented in your OS\n");
+#if DEBUG
+    printf("after msync_manual: ");
 #endif
-
-    set_cap_info(ct->stack, ct->stack_size);
-
-    get_dirty_page_num(ct->stack_size, pages, ct->stack);*/
-
+    get_dirty_page_num(ct->stack_size, pages, ct->stack);
     close(fd); 
-    
 }
 
 // replica_flag is a state machine here
 // TODO: but it seems not good, so disable suspend & resume syscall here
 int cvm_dumping() {
 
-    int cid = 16; // todo: global or arg
+    int cid = global_cid; // todo: arg?
     struct c_thread *ct = cvms[cid].threads;
     //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
@@ -183,7 +166,7 @@ int cvm_dumping() {
     pause_thread();
     get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
-#if DEBUG
+#if ANALYSE
     struct timeval start, end;
     gettimeofday(&start, NULL);
 #endif
@@ -225,10 +208,10 @@ int cvm_dumping() {
         return 0;
     }
 
-    int tag_array[33];
+    int tag_array[REG_NUM];
     memset(tag_array, 0, sizeof(tag_array));
     uintcap_t *ptr = (uintcap_t *)(&ctx.frame.tf_ra);
-    for(int i=0;i<33;i++) {
+    for(int i=0;i<REG_NUM;i++) {
         void *__capability elem = (void *__capability)(ptr[i]); // copyoutcap with tag
 #if DEBUG
         printf("[%d]", i);
@@ -259,8 +242,7 @@ int cvm_dumping() {
     printf("thread_context end\n");
 #endif
     int dirty_page_num = get_dirty_page_num(ct->stack_size, PAGE_NUM, ct->stack);
-
-    get_cap_info(ct->stack, ct->stack_size);
+    int valid_cap_num = get_cap_info(ct->stack, ct->stack_size);
 
     stack_dirty_page_update(ct);
 
@@ -269,9 +251,10 @@ int cvm_dumping() {
         perror("open");
         exit(EXIT_FAILURE);
     }
-    if (write(fd3, stack_cap_tags, sizeof(stack_cap_tags)) == -1) {
-        perror("write stack_cap_tags");
-        close(fd);
+
+    if (write(fd3, (void *)stack_cap_tags_sparse, valid_cap_num*sizeof(int)) == -1) {
+        perror("write stack_cap_tags_sparse");
+        close(fd3);
         exit(EXIT_FAILURE);
     }
     close(fd3); 
@@ -282,9 +265,9 @@ int cvm_dumping() {
 
     if(is_master & backup_valid_flag) {
 #if ASYNC_PIPELINE
-        async_master_to_backup(ct, dirty_page_num);
+        async_master_to_backup(ct, dirty_page_num, valid_cap_num);
 #elif
-        master_to_backup(ct, dirty_page_num);
+        master_to_backup(ct, dirty_page_num, valid_cap_num);
 #endif
     }
 
@@ -299,7 +282,7 @@ int cvm_dumping() {
         replica_flag = 0;
     }
 
-#if DEBUG
+#if ANALYSE
     gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));

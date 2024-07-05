@@ -19,6 +19,7 @@ struct s_box cvms[MAX_CVMS];
 
 //default config
 lwpid_t threadid = -1;
+int global_cid;
 int timers = 0;
 int debug_calls = 0;
 //
@@ -352,39 +353,18 @@ void *init_thread(void *arg) {
 	printf("-----------------------------------------------\n");
 //printf doesn't work anymore 
 
-	//pthread_sigmask(SIG_SETMASK, NULL, NULL);
-
-	//mmaptest(me);
-	printf("---over--------------\n\n");
-	//exit(-1);
-
-	global_pid = pthread_self();
-
-	
-    struct thread_snapshot ctx2;
-    global_cap_ptr = cheri_ptrperm(&ctx2, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
-    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
-
-
-	if(resume_flag_x == 0) {
-		printf("resume_flag_x == 0\n");
-		threadid = pthread_getthreadid_np();
-
-		context_test(1);
-
+	printf("resume_flag_x: %d\n", resume_flag_x);
+	threadid = pthread_getthreadid_np();
+	if(resume_flag_x == NO_RESUME) {
+		capture_or_resume(resume_flag_x);
 		cmv_ctp(me->c_tp);
 		cinv(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
 	}
 	else {
-		printf("resume_flag_x == 1\n");
-		threadid = pthread_getthreadid_np();
-
 		cinv_resume_aux(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
-		
-		context_test(2);
-
+		capture_or_resume(resume_flag_x);
 		while(1) {
 			sleep(10);
 		}
@@ -781,25 +761,15 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 
 pthread_t run_cvm(int cid, int resume_flag) {
 	struct c_thread *ct = cvms[cid].threads;
-	//ct[0].resume_flag = resume_flag;
-	void* stackAddr;
-    size_t stackSize;
-    pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);
-    printf("\n\n\n\nstart Stack2 Address: %p\n", stackAddr);
-    printf("start Stack2 Size: %p\n\n\n\n", stackSize);
-
 
 	/*-------------------------------------------------------*/
 	/*test mmap file here only thread[0]*/
-
 	mmap_file_test(ct, resume_flag);
-
 	printf("mmap_file_test! \n");
-
 	/*-------------------------------------------------------*/
 
-
 	printf("run_cvm: %d\n", cid);
+	global_cid = cid;
 
 	int ret = pthread_create(&ct[0].tid, &ct[0].tattr, init_thread, &ct[0]);
 	if(ret != 0) {
@@ -823,7 +793,7 @@ int parse_and_spawn_yaml(char *yaml_cfg, char libvirt, int resume_flag) {
 		exit(1);
 	}
 
-	if(resume_flag == 0)
+	if(resume_flag == NO_RESUME)
 	{
 		for(struct capfile * f = state->clist; f; f = f->next) {
 						printf("capfile: name=%s, data='%s', size=0x%lx, addr=0x%lx \n", f->name, f->data, f->size, f->addr);
@@ -994,8 +964,7 @@ int main(int argc, char *argv[]) {
 	char *disk_img = "./disk.img";
 	char *yaml_cfg = 0;
 	char *runtime_so = "libcarrie.so";
-	char *dump_file = "";
-	int dump_flags = 0;
+	resume_flag_x = NO_RESUME;
 
 	char **argv_orig = argv;
 	int argc_orig = argc;
@@ -1030,7 +999,8 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("--resume", *argv) == 0) {
 			skip_argc += 2;
 			yaml_cfg = *++argv;
-			dump_flags = 1;
+			//dump_flags = 1;
+			resume_flag_x = RESUME_FROM_SNAPSHOT;
 			break;
 		} else if(strcmp("-n", *argv) == 0 || strcmp("--network", *argv) == 0) {
 			skip_argc += 1;
@@ -1048,10 +1018,11 @@ int main(int argc, char *argv[]) {
 			is_master = false;
 			backup_valid_flag = true;
 			//test_network_server();
+			backup_memory_init();
 			backup_network_setup();
 			backup_server();
 			yaml_cfg = "musl-uni-hello.yaml";
-			dump_flags = 1;
+			resume_flag_x = RESUME_FROM_MEMORY;
 			break;
 		} else if(strcmp("-a", *argv) == 0 || strcmp("--args", *argv) == 0) {
 
@@ -1100,15 +1071,14 @@ int main(int argc, char *argv[]) {
 	extern host_syscall_handler_adv(char *, void *__capability pcc, void *__capability ddc, void *__capability pcc2);
 	host_syscall_handler_adv("monitor", sealed_pcc, sealed_ddc, sealed_pcc2);
 	
-	if(dump_flags == 1) {
+	/*if(resume_flag_x != 0) {
 		printf("cvm resume_flag\n");
-		resume_flag_x = 1;
-		parse_and_spawn_yaml(yaml_cfg, 0, 1);
+		parse_and_spawn_yaml(yaml_cfg, 0, resume_flag_x);
 		return 0;
-	}
+	}*/
 
 	if(yaml_cfg) {
-		parse_and_spawn_yaml(yaml_cfg, 0, 0);
+		parse_and_spawn_yaml(yaml_cfg, 0, resume_flag_x);
 	} else {
 #if LIBVIRT
 		extern int libvirt_main(int argc, char *argv[]);
