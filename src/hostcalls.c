@@ -409,12 +409,11 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 
 	if(replica_flag == 1) {
 		replica_flag = 2;
-		printf("replica_flag =!!!= 1\n");
+		//printf("replica_flag =!!!= 1\n");
 		if (kill(getpid(), SIGALRM) == -1) {
 			perror("kill error");
 			return 1;
 		}
-
 	}
 
 	//pthread_mutex_unlock(&ct->sbox->ct_lock);
@@ -429,7 +428,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		sleep(1);
 	}*/
 
-	printf("replica_flag loop end\n");
+	//printf("replica_flag loop end\n");
 
 	switch (t5) {
 	case 1:
@@ -440,21 +439,10 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	case 30:
 		printf("here is 30 hostcall\n");
 #ifdef __CHERI_PURE_CAPABILITY__
-printf("__CHERI_PURE_CAPABILITY__\n");
+		printf("__CHERI_PURE_CAPABILITY__\n");
 #else
-printf("no __CHERI_PURE_CAPABILITY__\n");
+		printf("no __CHERI_PURE_CAPABILITY__\n");
 #endif
-
-	int i = 0;
-    /*while(1) {
-		i++;
-        printf("%d \n ", i);
-        //sleep(1);
-		if(i==10000000) {
-			i=1;
-		}
-    }*/
-
 		break;
 
 
@@ -797,6 +785,9 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 		break;
 	case 803:
 		ret = close(a0);
+		if(ret != -1) {
+			close_fd(a0);
+		}
 		if((is_master & backup_valid_flag) && ret != -1) {
 			send_to_backup_op(803, a0);
 		}
@@ -823,6 +814,7 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 				perror("Failed to get current file position");
 				return -1;
 			}
+			current_pos -= a2;
 			printf("sender comp_to_mon(a1, ct->sbox): %s\n\n\n\n", comp_to_mon(a1, ct->sbox));
 			send_to_backup_op(810, a0, comp_to_mon(a1, ct->sbox), a2, current_pos);
 		}
@@ -830,6 +822,9 @@ printf("no __CHERI_PURE_CAPABILITY__\n");
 	case 811:
 //                      ret = open(comp_to_mon(a0, ct->sbox), a1, a2);
 		ret = open(comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
+		if(ret != -1) {
+			open_fd(ret, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
+		}
 		if((is_master & backup_valid_flag) && ret != -1) {
 			send_to_backup_op(811, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666, ret);
 		}

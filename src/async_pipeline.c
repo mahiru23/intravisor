@@ -2,14 +2,14 @@
 
 int full_copy_flag = 0;
 
-queue master_event_queue;
+// a producer-consumer model queue
+queue master_event_queue; 
 queue backup_event_queue;
 
 // single thread
 void async_pipeline_master_init() {
 	int ret = -1;
 	pthread_t id;
-
     stack_cap_tags_sparse_size = 200;
     stack_cap_tags_sparse_now_length = 0;
     stack_cap_tags_sparse = (int *)malloc(stack_cap_tags_sparse_size * sizeof(int)); // init with 200 cap, will increase
@@ -25,10 +25,7 @@ void async_pipeline_master_init() {
 }
 
 void async_pipeline_master_impl() {
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGALRM);
-    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    mask_signal(SIGALRM);
 
     // set buffer-queue to send
     queue *que = &master_event_queue;
@@ -46,17 +43,20 @@ void async_pipeline_master_impl() {
         tm.tv_usec = QUEUE_TIMEOUT_USEC;
 
         int select_ret;
-        // may need queue lock?????
-        if(que->top == NULL) { // queue empty
+        int size = get_size(que);
+        
+        if(size == 0) { // queue empty
             //select_ret = select(FD_SETSIZE, &readset, 0, 0, &tm);
             usleep(QUEUE_EMPTY_TIMEOUT_USEC);
             continue;
         }
         else {
+            if(size > 1000) {
+                printf("master queue size > 1000, timeout is too long!\n");
+            }
             //select_ret = select(FD_SETSIZE, &readset, &writeset, 0, &tm);
             select_ret = select(FD_SETSIZE, 0, &writeset, 0, &tm);
         }
-
 
         if (select_ret == -1) {
             if (errno != EINTR) {
@@ -68,18 +68,11 @@ void async_pipeline_master_impl() {
             printf("async_pipeline_master_impl: select timeout\n");
             continue;
         } else {
-            // ... 
-            /*if (FD_ISSET(global_socket, &readset)) {
-                // read request from backup
-                // may not need???
-                ;
-            }*/
-
             if (FD_ISSET(global_socket, &writeset)) {
                 // write sendqueue
                 // heartbeat & file/socket ops & checkpoint
                 int flag = 0;
-                while(que->top != NULL) {
+                while(get_size(que) != 0) {
                     node *n = que->top;
                     printf("send n->type: %d\n", n->type);
                     if(send_all(global_socket, n, sizeof(node)) == -1) {
@@ -87,7 +80,6 @@ void async_pipeline_master_impl() {
                         printf("async_pipeline_master_impl: send node error\n");
                         break;
                     }
-                    printf("async_pipeline_master_impl: send node success\n\n\n\n");
 
                     if(send_all(global_socket, n->payload, n->len) == -1) {
                         flag = 1;
@@ -106,22 +98,7 @@ void async_pipeline_master_impl() {
             }
         }
     }
-
-    
     master_failure_handler();
-    /*while(1) {
-        sleep(1);
-    }*/
-}
-
-
-
-void init_vm_event(struct vm_event* v, long t5, long a0, long a1, long a2, long a3) {
-    v->t5 = t5;
-    v->a0 = a0;
-    v->a1 = a1;
-    v->a2 = a2;
-    v->a3 = a3;
 }
 
 /*file & network ops, async send*/
@@ -159,7 +136,6 @@ void send_to_backup_op(long t5, long a0, long a1, long a2, long a3) {
         strcpy(pathname, (char *)a0);
         n->len = len;
         n->payload = pathname;
-
         push_back(que, n);
         break;
     }
@@ -175,7 +151,6 @@ void send_to_backup_op(long t5, long a0, long a1, long a2, long a3) {
         n->len = len;
         n->payload = pathname;
         push_back(que, n);
-
 		break;
     }
 	case 810: { // write
@@ -188,10 +163,6 @@ void send_to_backup_op(long t5, long a0, long a1, long a2, long a3) {
         n->len = a2;
         n->payload = write_buffer;
         push_back(que, n);
-
-        printf("sender write_buffer: %s\n\n\n\n", write_buffer);
-        printf("sender (void *)(a1): %s\n\n\n\n", (a1));
-
 		break;
     }
 	default:
@@ -240,13 +211,15 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
     packet_index.dirty_page_map_len = sizeof(dirty_page_map);
     packet_index.stack_page_len = dirty_page_num * PAGE_SIZE;
     packet_index.stack_cap_tags_len = valid_cap_num * sizeof(int);
+    packet_index.fd_list_len = open_fd_list_size();
 
     int len =   sizeof(packet_index) + \
                 packet_index.context_len + \ 
                 packet_index.capfiles_len + \
                 packet_index.dirty_page_map_len + \
                 packet_index.stack_page_len + \
-                packet_index.stack_cap_tags_len;
+                packet_index.stack_cap_tags_len + \
+                packet_index.fd_list_len;
 
     unsigned long pos = 0;
     char *packet = (char *)malloc(len*sizeof(char));
@@ -300,6 +273,10 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
 
     // tag_valid (todo: run-length-code?)
     memcpy((packet+pos), (void *)(stack_cap_tags_sparse), packet_index.stack_cap_tags_len);
+    pos+=packet_index.stack_cap_tags_len;
+
+    memcpy_fd_list((packet+pos), packet_index.fd_list_len);
+    pos+=packet_index.fd_list_len;
 
     queue *que = &master_event_queue;
     node *n = (node *)malloc(sizeof(node));
@@ -328,7 +305,7 @@ void async_pipeline_backup_init() {
 }
 
 int release_queue(queue* que) {
-	while(que->top != NULL) {
+	while(get_size(que) != 0) {
 		node *n = que->top;
 
         switch (n->event.t5) {
@@ -348,7 +325,7 @@ int release_queue(queue* que) {
         case 811: {// open
             char *pathname = n->payload;
             int master_fd = n->event.a3;
-            if(open_fd_new(master_fd, pathname, n->event.a1, n->event.a2) == -1) {
+            if(open_fd_backup(master_fd, pathname, n->event.a1, n->event.a2) == -1) {
                 perror("cannot open master_fd");
                 return -1;
             }
@@ -363,11 +340,9 @@ int release_queue(queue* que) {
                 return -1;
             }
 
-            printf("write_buffer: %s, current_pos: %d, n->len: %d\n\n\n\n", write_buffer, current_pos, n->len);
-
             if (write(master_fd, write_buffer, n->len) == -1) {
                 perror("write master_fd");
-                close_fd(master_fd);
+                close(master_fd);
                 exit(EXIT_FAILURE);
             }
             break;
@@ -409,6 +384,8 @@ int save_snapshot_to_disk(char *packet) {
     }
 
     pos += snapshot_to_file("stack_cap_tags.bin", (packet + pos), packet_index.stack_cap_tags_len, 0);
+
+    pos += snapshot_to_file("fd_list.bin", (packet + pos), packet_index.fd_list_len, 0);
 
     printf("save_snapshot_to_disk, over\n");
 
@@ -463,6 +440,8 @@ int save_snapshot_to_memory(char *packet) {
     memcpy((void *)stack_cap_tags_sparse, (packet+pos), packet_index.stack_cap_tags_len);
     pos += packet_index.stack_cap_tags_len;
 
+    save_fd_list_backup(packet+pos);
+
     printf("save_snapshot_to_memory, over\n");
 
     return 0;
@@ -485,9 +464,6 @@ int async_backup_server_impl() {
         return -1;
     }
 
-    printf("recv n->type: %d\n", n->type);
-    printf("async_backup_server_impl recv_all node \n\n\n\n\n");
-
     if(n->type == HEARTBEAT) { // heartbeat (not checkpoint)
         return 0;
     }
@@ -501,7 +477,6 @@ int async_backup_server_impl() {
                 return -1;
             }
             n->payload = write_buffer;
-            printf("write_buffer: %s\n\n\n\n", write_buffer);
         }
         return 0;
     }
@@ -529,7 +504,7 @@ int async_backup_server_impl() {
         return -2;
     }
     else {
-        perror("async_backup_server_impl: error node type!\n\n\n\n\n");
+        perror("async_backup_server_impl: error node type!\n");
         free(n);
         exit(-1);
     }

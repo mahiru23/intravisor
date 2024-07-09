@@ -339,6 +339,14 @@ struct vm_event {
     long a3;
 };
 
+static __inline__ void init_vm_event(struct vm_event* v, long t5, long a0, long a1, long a2, long a3) {
+    v->t5 = t5;
+    v->a0 = a0;
+    v->a1 = a1;
+    v->a2 = a2;
+    v->a3 = a3;
+}
+
 typedef struct node_s node;
 typedef struct queue_s queue;
 
@@ -360,12 +368,14 @@ struct queue_s {
 	node *top;
 	node *bottom;
 	bool lock;
+	int size;
 };
 
 static __inline__ void queue_init(queue * q) {
 	q->top = NULL;
 	q->bottom = NULL;
 	q->lock = 0;
+	q->size = 0;
 }
 
 static __inline__ void spin_lock(bool *l) {
@@ -390,6 +400,7 @@ static __inline__ void push_back(queue * q, node * new_node) {
 		new_node->header.next = q->bottom;
 		q->bottom = new_node;
 	}
+	q->size++;
 
 	spin_unlock(&q->lock);
 }
@@ -408,6 +419,7 @@ static __inline__ void push_front(queue * q, node * new_node) {
 		new_node->header.prev = q->top;
 		q->top = new_node;
 	}
+	q->size++;
 
 	spin_unlock(&q->lock);
 }
@@ -431,7 +443,8 @@ static __inline__ node *pop_front(queue * q) {
 
 	if(q->top == NULL)
 		q->bottom = NULL;
-
+	
+	q->size--;
 	spin_unlock(&q->lock);
 
 	node->header.prev = NULL;
@@ -455,7 +468,8 @@ static __inline__ node *pop_back(queue * q) {
 
 	if(q->bottom == NULL)
 		q->top = NULL;
-
+	
+	q->size--;
 	spin_unlock(&q->lock);
 
 	node->header.prev = NULL;
@@ -463,6 +477,15 @@ static __inline__ node *pop_back(queue * q) {
 
 	return node;
 }
+
+static __inline__ int get_size(queue * q) {
+	int res;
+	spin_lock(&q->lock);
+	res = q->size;
+	spin_unlock(&q->lock);
+	return res;
+}
+
 
 // random 
 long get_file_size(char *path);
@@ -528,9 +551,10 @@ struct files_detail {
     int dirty_page_map_len;
     int stack_page_len;
     int stack_cap_tags_len;
+	int fd_list_len;
 };
 
-
+#define LOCAL_SNAPSHOT 1
 #define ASYNC_PIPELINE 1
 extern int *stack_cap_tags_sparse;
 extern int stack_cap_tags_sparse_size;
@@ -565,8 +589,12 @@ extern char *backup_stack_buffer;
 #define STACK_CAP_LINE STACK_SIZE/(sizeof(uintcap_t *)*2)
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
+
+// test
 #define DEBUG 0
 
+#define RANDOM_CRASH 1
+#define RANDOM_CRASH_TIMEOUT_SEC 1
 
 
 

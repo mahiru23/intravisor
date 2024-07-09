@@ -337,7 +337,7 @@ int backup_failure_handler() {
 		free(n);
 	}
 
-	clear_fd_list();
+	//clear_fd_list();
 
     return 0;
 }
@@ -488,6 +488,43 @@ int get_dirty_page_num(unsigned long FILE_SIZE, int pages, char *addr) {
     return dirty_pages;
 }
 
+
+void mask_signal(int signo) {
+	sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, signo);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+}
+
+void random_crash_impl() {
+	pthread_detach(pthread_self());
+	printf("random_crash_impl\n");
+	sleep(10);
+	struct c_thread *ct = cvms[global_cid].threads;
+	while(1) {
+		sleep(RANDOM_CRASH_TIMEOUT_SEC);
+		if(rand()%10 == 0) {
+			printf("random_crash kill thread: %d\n", ct->tid);
+			int ret = pthread_kill(ct->tid, SIGKILL);
+			if (ret != 0) {
+				perror("Sending signal to thread failed");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		}
+	}
+}
+
+void random_crash() {
+	printf("random_crash over 1\n");
+	srand(time(NULL));
+	printf("random_crash over 2\n");
+	pthread_t tid;
+	int ret = pthread_create(&tid, NULL, (void *)random_crash_impl, NULL);
+	if(ret != 0) {
+		printf("pthread_create failed!ret=%d err=%s\n", ret, strerror(ret));
+	}
+}
 
 /*may not use, clear at release version? need more test to choose compression algorithm*/
 // to compress stack_cap_tags

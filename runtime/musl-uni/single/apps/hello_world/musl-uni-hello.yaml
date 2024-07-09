@@ -1,4 +1,12 @@
 ---
+capfiles:
+- name: test1
+  size: 0x20
+  data: "Some random text\n"
+- name: test2
+  size: 0x1000
+
+---
 cVMs:
 - name: hello
   runtime: libhello_world.so

@@ -356,7 +356,13 @@ void *init_thread(void *arg) {
 	printf("resume_flag_x: %d\n", resume_flag_x);
 	threadid = pthread_getthreadid_np();
 	if(resume_flag_x == NO_RESUME) {
+#if LOCAL_SNAPSHOT		
 		capture_or_resume(resume_flag_x);
+#if RANDOM_CRASH
+		random_crash(); // only for test
+#endif
+#endif
+
 		cmv_ctp(me->c_tp);
 		cinv(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
@@ -777,10 +783,7 @@ pthread_t run_cvm(int cid, int resume_flag) {
 		printf("ret = %d\n", ret);
 	}
 
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGALRM);
-    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    mask_signal(SIGALRM);
 
 	return ct[0].tid;
 }

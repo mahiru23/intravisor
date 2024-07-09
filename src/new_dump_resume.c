@@ -277,6 +277,8 @@ int cvm_dumping() {
 
     host_cap_file_dump();
 
+    save_fd_list_snapshot();
+
     if(is_master & backup_valid_flag) {
 #if ASYNC_PIPELINE
         async_master_to_backup(ct, dirty_page_num, valid_cap_num);

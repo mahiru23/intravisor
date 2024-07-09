@@ -53,22 +53,27 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
 
     struct proc *p;
     struct thread *t;
-    struct thread_snapshot ctx2;
+    struct thread_snapshot ctx_in;
     int error;
     int kernel_debug = 0; // arg in
 
     p = td->td_proc;
     pid_t pid = p->p_pid;
 
-
     // find thread
     t = tdfind(threadid, pid);
     if (t == NULL) {
-        //PROC_UNLOCK(p);
         log(LOG_WARNING, "tdfind error\n");
         return ESRCH;
     }
 
+    error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
+    if (error) {
+        log(LOG_WARNING, "copyincap error\n");
+        return error;
+    }
+
+    kernel_debug = ctx_in.kernel_debug;
     if(kernel_debug == 1) {
         log(LOG_WARNING, "Debug: thread is %p\n", t);
     }
@@ -83,11 +88,9 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         sched_prio(t, PRI_MAX);
         thread_unlock(t);
         PROC_SUNLOCK(p);
-
         if(kernel_debug == 1) {
             log(LOG_WARNING, "Debug: thread is suspend \n");
         }
-
         return 0;
     }
 
@@ -101,11 +104,9 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         thread_unlock(t);
         PROC_SUNLOCK(p);
         PROC_UNLOCK(p);
-
         if(kernel_debug == 1) {
             log(LOG_WARNING, "Debug: thread is resume \n");
         }
-
         return 0;
     }
 
@@ -113,18 +114,15 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
     {
         PROC_LOCK(p);
         thread_lock(t);
-
-        memcpy(&(ctx2.frame), t->td_frame, sizeof(struct trapframe)); // context
-        error = copyoutcap(&ctx2, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
+        memcpy(&(ctx_in.frame), t->td_frame, sizeof(struct trapframe)); // context
+        error = copyoutcap(&ctx_in, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
         if (error) {
             log(LOG_WARNING, "copyoutcap error\n");
             return error;
         }
-
         if(kernel_debug == 1) {
             log(LOG_WARNING, "Debug: capture snapshot \n");
         }
-
         thread_unlock(t);
         PROC_UNLOCK(p);
     }
@@ -166,6 +164,11 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
         log(LOG_WARNING, "Debug: thread is %p\n", t);
         log(LOG_WARNING, "t->td_frame start\n");
     }
+
+    PROC_SLOCK(p);
+    thread_lock(t);
+    thread_suspend_one(t);
+    sched_prio(t, PRI_MAX);
 
     t->td_frame->tf_ra = ctx_in.frame.tf_ra;
     t->td_frame->tf_sp = ctx_in.frame.tf_sp;
@@ -209,21 +212,16 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
         log(LOG_WARNING, "over\n");
     }
 
+    thread_unsuspend_one_extra(p, t);
+    sched_prio(t, PRI_MIN);
+    thread_unlock(t);
+    PROC_SUNLOCK(p);
     PROC_UNLOCK(p);
     return 0;
 }
-
-
-
-
-
 
 int sys_resume_from_snapshot(struct thread *td, struct resume_from_snapshot_args *uap)
 {
     return (kern_resume_from_snapshot(td, uap->pid, uap->threadid, uap->ctx));
 }
-
-
-
-
 

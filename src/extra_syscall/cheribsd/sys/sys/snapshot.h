@@ -13,7 +13,6 @@
 
 struct thread_snapshot {
     struct trapframe frame;
-    void *__capability stack;
     int kernel_debug;
 };
 

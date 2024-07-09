@@ -161,6 +161,7 @@ void thread_resume(int resume_flag) {
         }
         close(fd);
         host_cap_file_resume();
+        resume_fd_list_from_snapshot();
     }
     else {
         memcpy((void *)(&ctx), backup_context_buffer, sizeof(struct thread_snapshot));
@@ -251,6 +252,9 @@ void thread_resume(int resume_flag) {
 // single thread
 void capture_or_resume(int no) {
     print_stack_info();
+
+    init_fd_store();
+    
 	int ret = -1;
 	pthread_t timerid;
 
@@ -263,14 +267,10 @@ void capture_or_resume(int no) {
         exit(-1);
     }
 
-	if(ret != 0)
-	{
+	if(ret != 0) {
 		printf("pthread_create failed!ret=%d err=%s\n", ret, strerror(ret));
 	}
 
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGALRM);
-    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    mask_signal(SIGALRM);
 }
 

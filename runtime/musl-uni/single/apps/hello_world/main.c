@@ -19,11 +19,11 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <signal.h>
-
+#include <sys/stat.h>
 
 #define MSG "hello world, just a hostcall test here \n"
 
-#define MSGX "cons, file test success! \n"
+#define MSGX "congrats, file test success! \n"
 
 #define MSGY "1"
 
@@ -53,7 +53,7 @@ void app_main() {
         return;
     }
 
-    const char* str = "test write: ";
+    /*const char* str = "test write: ";
 
     if (host_write(fd, str, (long)strlen(str)) == -1) {
         printf("write error 1\n");
@@ -64,19 +64,23 @@ void app_main() {
         return;
     }
 
-    printf("write test over \n");
+    printf("write test over \n");*/
 
     struct timeval start, end;
     host_gettimeofday(&start, NULL);
 
 	int i = 0;
-    while(i<100000) {
+    int acc = 0;
+    while(i<50000) {
 		i++;
-		printf(" times: %d \n ", i);
+		
         //sleep(1);
         
 		if(i%1000 == 0) {
-            if (host_write(fd, MSGY, (long)sizeof(MSGY)) == -1) {
+            printf(" times: %d \n ", i);
+            sleep(1);
+            acc += 1;
+            if (host_write(fd, MSGY, 1) == -1) {
                 printf("write error MSGY\n");
                 return;
             }
@@ -86,13 +90,36 @@ void app_main() {
     host_gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    printf("finish test runtime in %f, ",(now - then) / 1000.0);
+    printf("finish test runtime in %f\n",(now - then) / 1000.0);
 
 
-    if (host_write(fd, MSGX, (long)sizeof(MSGX)) == -1) {
+    /*if (host_write(fd, MSGX, (long)sizeof(MSGX)) == -1) {
         printf("write error 3\n");
         return;
+    }*/
+
+
+    struct stat st;
+    if (host_fstat(fd, &st) != 0) {
+        perror("Failed to get file status");
+        close(fd);
+        return;
     }
+    int current_pos = host_lseek(fd, 0, SEEK_CUR);
+    if (current_pos == -1) {
+        perror("Failed to get current file position");
+        return;
+    }
+    
+    // fd test
+    if(st.st_size == acc && current_pos == acc) {
+        printf("fd test success!\n");
+    }
+    else {
+        printf("st.st_size: %d, current_pos: %d, acc: %d\n", st.st_size, current_pos, acc);
+    }
+
+    close(fd);
 
     c_out_3(1, MSG, (long)sizeof(MSG), 0);
     printf("out success! \n ");
