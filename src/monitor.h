@@ -63,6 +63,7 @@
 #include <netinet/in.h> 
 #include <sys/select.h>
 #include <math.h>
+#include <dirent.h>
 
 #include "intravisor.h"
 #include <arch.h>
@@ -519,14 +520,12 @@ extern bool master_valid_flag;
 extern bool backup_valid_flag;
 extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
-#define ANALYSE 1
-
 /*async pipeline*/
 #define PORT 8080
 /*#define HEARTBEAT_TIMEOUT 5
 #define DISCONNECTION_TIMEOUT 15*/
 
-#define HEARTBEAT_TIMEOUT_SEC 5
+#define HEARTBEAT_TIMEOUT_SEC 1
 #define HEARTBEAT_TIMEOUT_USEC 0
 
 #define DISCONNECTION_TIMEOUT_SEC 15
@@ -535,7 +534,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 #define QUEUE_TIMEOUT_SEC 1
 #define QUEUE_TIMEOUT_USEC 0
 
-#define QUEUE_EMPTY_TIMEOUT_USEC 300
+#define QUEUE_EMPTY_TIMEOUT_USEC 100
 
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
@@ -552,6 +551,7 @@ struct files_detail {
     int stack_page_len;
     int stack_cap_tags_len;
 	int fd_list_len;
+	int heap_dirty_page_packet_len;
 };
 
 #define LOCAL_SNAPSHOT 1
@@ -591,10 +591,13 @@ extern char *backup_stack_buffer;
 
 
 // test
-#define DEBUG 0
-
-#define RANDOM_CRASH 1
+#define DEBUG 1
+#define ANALYSE 1
+#define RANDOM_CRASH 0
 #define RANDOM_CRASH_TIMEOUT_SEC 1
 
-
+// poor performance with large heap (here 1G)
+#define HEAP_SNAPSHOT 1
+extern char *heap_dirty_page_packet;
+extern int global_heap_dirty_page_num;
 

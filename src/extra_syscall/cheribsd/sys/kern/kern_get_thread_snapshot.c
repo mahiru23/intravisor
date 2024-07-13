@@ -70,6 +70,7 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
     error = copyincap(ctx, &ctx_in, sizeof(ctx_in));
     if (error) {
         log(LOG_WARNING, "copyincap error\n");
+        PROC_UNLOCK(p);
         return error;
     }
 
@@ -85,7 +86,6 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         PROC_SLOCK(p);
         thread_lock(t);
         thread_suspend_one(t);
-        sched_prio(t, PRI_MAX);
         thread_unlock(t);
         PROC_SUNLOCK(p);
         if(kernel_debug == 1) {
@@ -100,7 +100,6 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         PROC_SLOCK(p);
         thread_lock(t);
         thread_unsuspend_one_extra(p, t);
-        sched_prio(t, PRI_MIN);
         thread_unlock(t);
         PROC_SUNLOCK(p);
         PROC_UNLOCK(p);
@@ -118,6 +117,8 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         error = copyoutcap(&ctx_in, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
         if (error) {
             log(LOG_WARNING, "copyoutcap error\n");
+            thread_unlock(t);
+            PROC_UNLOCK(p);
             return error;
         }
         if(kernel_debug == 1) {
@@ -165,11 +166,6 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
         log(LOG_WARNING, "t->td_frame start\n");
     }
 
-    PROC_SLOCK(p);
-    thread_lock(t);
-    thread_suspend_one(t);
-    sched_prio(t, PRI_MAX);
-
     t->td_frame->tf_ra = ctx_in.frame.tf_ra;
     t->td_frame->tf_sp = ctx_in.frame.tf_sp;
     t->td_frame->tf_gp = ctx_in.frame.tf_gp;
@@ -212,10 +208,6 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
         log(LOG_WARNING, "over\n");
     }
 
-    thread_unsuspend_one_extra(p, t);
-    sched_prio(t, PRI_MIN);
-    thread_unlock(t);
-    PROC_SUNLOCK(p);
     PROC_UNLOCK(p);
     return 0;
 }

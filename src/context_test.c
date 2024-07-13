@@ -103,9 +103,9 @@ void *__capability invalid_to_valid(void *__capability elem) {
     return valid_cap;
 }
 
-void set_cap_info(void *stack, size_t size) {
-    uintcap_t *stack_ptr = (uintcap_t *)(stack);
-    uintcap_t *ptr = (uintcap_t *)(stack);
+void set_cap_info(void *addr, size_t size) {
+    uintcap_t *stack_ptr = (uintcap_t *)(addr);
+    uintcap_t *ptr = (uintcap_t *)(addr);
     for (int i=0; i<stack_cap_tags_sparse_now_length; i++) {
         int pos = stack_cap_tags_sparse[i];
         if(cheri_getperm((void *__capability)(stack_ptr[pos])) == 0) {
@@ -233,7 +233,9 @@ void thread_resume(int resume_flag) {
             exit(EXIT_FAILURE);
         }
         close(fd3);
-
+#if HEAP_SNAPSHOT
+        resume_heap_from_disk();
+#endif
     }
     else {
         char *addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
@@ -242,6 +244,9 @@ void thread_resume(int resume_flag) {
             exit(EXIT_FAILURE);
         }
         memcpy((void *)addr, backup_stack_buffer, ct->stack_size);
+#if HEAP_SNAPSHOT
+        resume_heap_from_memory();
+#endif
     }
 
     set_cap_info(ct->stack, ct->stack_size);

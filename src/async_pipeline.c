@@ -212,6 +212,11 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
     packet_index.stack_page_len = dirty_page_num * PAGE_SIZE;
     packet_index.stack_cap_tags_len = valid_cap_num * sizeof(int);
     packet_index.fd_list_len = open_fd_list_size();
+#if ASYNC_PIPELINE
+    packet_index.heap_dirty_page_packet_len = global_heap_dirty_page_num;
+#elif
+    packet_index.heap_dirty_page_packet_len = 0;
+#endif
 
     int len =   sizeof(packet_index) + \
                 packet_index.context_len + \ 
@@ -219,7 +224,8 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
                 packet_index.dirty_page_map_len + \
                 packet_index.stack_page_len + \
                 packet_index.stack_cap_tags_len + \
-                packet_index.fd_list_len;
+                packet_index.fd_list_len + \
+                packet_index.heap_dirty_page_packet_len;
 
     unsigned long pos = 0;
     char *packet = (char *)malloc(len*sizeof(char));
@@ -277,6 +283,11 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
 
     memcpy_fd_list((packet+pos), packet_index.fd_list_len);
     pos+=packet_index.fd_list_len;
+
+#if HEAP_SNAPSHOT
+    memcpy((packet+pos), (void *)(heap_dirty_page_packet), packet_index.heap_dirty_page_packet_len);
+    free(heap_dirty_page_packet);
+#endif
 
     queue *que = &master_event_queue;
     node *n = (node *)malloc(sizeof(node));
@@ -387,6 +398,10 @@ int save_snapshot_to_disk(char *packet) {
 
     pos += snapshot_to_file("fd_list.bin", (packet + pos), packet_index.fd_list_len, 0);
 
+#if HEAP_SNAPSHOT
+    save_heap_dirty_page_to_disk(packet+pos, packet_index.heap_dirty_page_packet_len);
+#endif
+
     printf("save_snapshot_to_disk, over\n");
 
     return 0;
@@ -441,6 +456,11 @@ int save_snapshot_to_memory(char *packet) {
     pos += packet_index.stack_cap_tags_len;
 
     save_fd_list_backup(packet+pos);
+    pos += packet_index.fd_list_len;
+
+#if HEAP_SNAPSHOT
+    save_heap_dirty_page_to_memory(packet+pos, packet_index.heap_dirty_page_packet_len);
+#endif
 
     printf("save_snapshot_to_memory, over\n");
 

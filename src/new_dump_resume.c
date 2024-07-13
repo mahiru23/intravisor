@@ -167,7 +167,7 @@ int cvm_dumping() {
     struct c_thread *ct = cvms[cid].threads;
     //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
-    ctx.kernel_debug = DEBUG;
+    ctx.kernel_debug = 1;
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
 
@@ -179,7 +179,7 @@ int cvm_dumping() {
 #endif
 
     pause_thread();
-    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
+    get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
 #if ANALYSE
     struct timeval start, end;
@@ -218,7 +218,7 @@ int cvm_dumping() {
         printf("in kernel\n");
         replica_flag = 1;
         //pthread_mutex_unlock(&ct->sbox->ct_lock);
-        //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
         resume_thread();
         return 0;
     }
@@ -279,6 +279,10 @@ int cvm_dumping() {
 
     save_fd_list_snapshot();
 
+#if HEAP_SNAPSHOT
+    heap_dirty_page_snapshot();
+#endif
+
     if(is_master & backup_valid_flag) {
 #if ASYNC_PIPELINE
         async_master_to_backup(ct, dirty_page_num, valid_cap_num);
@@ -290,7 +294,7 @@ int cvm_dumping() {
 #if DEBUG
     //test suspend
     printf("test suspend start\n");
-    //sleep(3);
+    sleep(5);
     printf("test suspend end\n");
 #endif
     
@@ -305,7 +309,7 @@ int cvm_dumping() {
     printf("capture snapshot of %d in %f, ", cid, (now - then) / 1000.0);
 #endif
 
-    //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
     resume_thread();
     return 0;
 }

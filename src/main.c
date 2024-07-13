@@ -355,6 +355,11 @@ void *init_thread(void *arg) {
 
 	printf("resume_flag_x: %d\n", resume_flag_x);
 	threadid = pthread_getthreadid_np();
+
+#if HEAP_SNAPSHOT
+    heap_page_init(global_cid);
+#endif
+
 	if(resume_flag_x == NO_RESUME) {
 #if LOCAL_SNAPSHOT		
 		capture_or_resume(resume_flag_x);
@@ -362,7 +367,6 @@ void *init_thread(void *arg) {
 		random_crash(); // only for test
 #endif
 #endif
-
 		cmv_ctp(me->c_tp);
 		cinv(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
@@ -989,6 +993,9 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
 			printf("Using yaml.cfg = %s\n", yaml_cfg);
+#if HEAP_SNAPSHOT
+    		heap_dir_init();
+#endif
 			break;
 		} else if(strcmp("-d", *argv) == 0 || strcmp("--disk", *argv) == 0) {
 			skip_argc += 2;
@@ -1021,9 +1028,16 @@ int main(int argc, char *argv[]) {
 			yaml_cfg = *++argv;
 			printf("Backup using yaml.cfg = %s\n", yaml_cfg);
 
+			if(is_master == true) {
+				printf("backup server doesn't need option -n\n");
+				exit(-1);
+			}
+
 			is_master = false;
 			backup_valid_flag = true;
-			//test_network_server();
+#if HEAP_SNAPSHOT
+    		heap_dir_init();
+#endif
 			backup_memory_init();
 			backup_network_setup();
 			int ret = backup_server();
