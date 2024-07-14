@@ -299,6 +299,17 @@ int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, v
 
 /*----------------------------------------------------------*/
 
+bool is_capability(void *__capability ptr) {
+    //int tag = cheri_gettag((ptr));
+	
+	bool res = ((uintmax_t)cheri_gettag((ptr))==0?false:true);
+	if(res == true && (cheri_getperm(ptr) == 0)) {
+		printf("is_capability error: perm == 0!\n\n\n\n");
+		CHERI_CAP_PRINT(ptr);
+	}
+    return res;
+}
+
 int master_failure_handler() {
     printf("master_failure_handler: disable backup\n");
     master_valid_flag = true;

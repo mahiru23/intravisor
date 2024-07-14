@@ -596,8 +596,9 @@ extern char *backup_stack_buffer;
 #define RANDOM_CRASH 0
 #define RANDOM_CRASH_TIMEOUT_SEC 1
 
-// poor performance with large heap (here 1G)
-#define HEAP_SNAPSHOT 1
+// very poor performance with large heap (here is about 1G)
+// still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
+#define HEAP_SNAPSHOT 0
 extern char *heap_dirty_page_packet;
 extern int global_heap_dirty_page_num;
 

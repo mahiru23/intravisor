@@ -110,6 +110,7 @@ void set_cap_info(void *addr, size_t size) {
         int pos = stack_cap_tags_sparse[i];
         if(cheri_getperm((void *__capability)(stack_ptr[pos])) == 0) {
             printf("set_cap_info error: perm = 0 !!!!!\n\n\n\n\n");
+            CHERI_CAP_PRINT(stack_ptr[pos]);
             continue;
         }
         void * __capability valid_cap;

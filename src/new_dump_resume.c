@@ -28,12 +28,6 @@ void resume_thread() {
     pthread_mutex_unlock(&mutex);
 }
 
-
-int is_capability(void *ptr) {
-    int res = cheri_gettag((void * __capability)(ptr));
-    return res;
-}
-
 int get_cap_info(void *stack, size_t size) {
     uintcap_t *stack_ptr = (uintcap_t *)(stack);
     int elem_len = sizeof(uintcap_t *) * 2; // cap = sizeof(void *)*2
@@ -167,7 +161,7 @@ int cvm_dumping() {
     struct c_thread *ct = cvms[cid].threads;
     //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
-    ctx.kernel_debug = 1;
+    ctx.kernel_debug = DEBUG;
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
 
@@ -280,7 +274,7 @@ int cvm_dumping() {
     save_fd_list_snapshot();
 
 #if HEAP_SNAPSHOT
-    heap_dirty_page_snapshot();
+    heap_dirty_page_snapshot(cvms[cid].heap, cvms[cid].heap_size);
 #endif
 
     if(is_master & backup_valid_flag) {
