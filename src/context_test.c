@@ -145,7 +145,7 @@ void thread_resume(int resume_flag) {
     int tag_array[REG_NUM];
 
     if(resume_flag == RESUME_FROM_SNAPSHOT) {
-        int fd = open("context_dump.bin", O_RDWR);
+        int fd = open("snapshot/context_dump.bin", O_RDWR);
         if (fd == -1) {
             perror("open");
             exit(EXIT_FAILURE);
@@ -202,7 +202,7 @@ void thread_resume(int resume_flag) {
 #endif
 
     if(resume_flag == RESUME_FROM_SNAPSHOT) {
-        int fd_stack = open("stack_dump.bin", O_RDWR);
+        int fd_stack = open("snapshot/stack_dump.bin", O_RDWR);
         if (fd_stack == -1) {
             perror("open");
             exit(EXIT_FAILURE);
@@ -215,7 +215,7 @@ void thread_resume(int resume_flag) {
         }
         close(fd_stack);
 
-        stack_cap_tags_sparse_size = get_filesize("stack_cap_tags.bin")/sizeof(int);
+        stack_cap_tags_sparse_size = get_filesize("snapshot/stack_cap_tags.bin")/sizeof(int);
         stack_cap_tags_sparse_now_length = stack_cap_tags_sparse_size;
         stack_cap_tags_sparse = (int *)malloc(stack_cap_tags_sparse_size* sizeof(int));
         if(stack_cap_tags_sparse == NULL) {
@@ -223,7 +223,7 @@ void thread_resume(int resume_flag) {
             exit(EXIT_FAILURE);
         }
 
-        int fd3 = open("stack_cap_tags.bin", O_RDWR);
+        int fd3 = open("snapshot/stack_cap_tags.bin", O_RDWR);
         if (fd3 == -1) {
             perror("open stack_cap_tags.bin error");
             exit(EXIT_FAILURE);

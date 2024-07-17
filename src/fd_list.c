@@ -100,7 +100,7 @@ void update_offset() {
 void save_fd_list_snapshot() {
     update_offset();
     pthread_mutex_lock(&fd_store_lock);
-    int fd = open("fd_list.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    int fd = open("snapshot/fd_list.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -142,7 +142,7 @@ void save_fd_list_backup(void *addr) {
 }
 
 void resume_fd_list_from_snapshot() {
-    int fd = open("fd_list.bin", O_RDWR);
+    int fd = open("snapshot/fd_list.bin", O_RDWR);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);

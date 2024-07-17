@@ -300,13 +300,7 @@ int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, v
 /*----------------------------------------------------------*/
 
 bool is_capability(void *__capability ptr) {
-    //int tag = cheri_gettag((ptr));
-	
 	bool res = ((uintmax_t)cheri_gettag((ptr))==0?false:true);
-	if(res == true && (cheri_getperm(ptr) == 0)) {
-		printf("is_capability error: perm == 0!\n\n\n\n");
-		CHERI_CAP_PRINT(ptr);
-	}
     return res;
 }
 
@@ -535,6 +529,15 @@ void random_crash() {
 	if(ret != 0) {
 		printf("pthread_create failed!ret=%d err=%s\n", ret, strerror(ret));
 	}
+}
+
+void makedir(const char *pathname) {
+    if(mkdir(pathname, S_IRWXU) != 0) {
+        if(errno != EEXIST) {
+            perror("mkdir snapshot");
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 /*may not use, clear at release version? need more test to choose compression algorithm*/

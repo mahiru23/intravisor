@@ -356,13 +356,14 @@ void *init_thread(void *arg) {
 	printf("resume_flag_x: %d\n", resume_flag_x);
 	threadid = pthread_getthreadid_np();
 
-#if HEAP_SNAPSHOT
-    heap_page_init(global_cid);
+#if HEAP_SNAPSHOT | SNAPSHOT
+    heap_page_init(global_cid, resume_flag_x);
 #endif
 
 	if(resume_flag_x == NO_RESUME) {
-#if LOCAL_SNAPSHOT		
+#if SNAPSHOT		
 		capture_or_resume(resume_flag_x);
+		makedir("snapshot");
 #if RANDOM_CRASH
 		random_crash(); // only for test
 #endif
@@ -434,15 +435,6 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 #if DEBUG
 	else
 		printf("encl_map.ret = %p\n", encl_map.ret_point);
-#endif
-
-#if 0
-	if(encl_map.signal_handler == 0) {
-		printf("signal_handler is 0, runtime image is wrong/corrupted\n");
-		while(1) ;
-	}
-	sig_func_inner = ((void*)(unsigned long)(encl_map.signal_handler) + (unsigned long)(encl_map.base));
-	printf("sig_func_inner: %p\n\n", sig_func_inner);
 #endif
 
 #ifdef CONFIG_OPENSSL
@@ -650,6 +642,11 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 
 ////////////////////
 	struct c_thread *ct = cvms[cid].threads;
+
+#if ANALYSE
+	cvms[cid].heap_size = 4097;
+	printf("modify cvms[cid].heap_size = 4097, only for test\n");
+#endif
 
 	for(int i = 0; i < MAX_THREADS; i++) {
 		ct[i].id = -1;
@@ -993,9 +990,6 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
 			printf("Using yaml.cfg = %s\n", yaml_cfg);
-#if HEAP_SNAPSHOT
-    		heap_dir_init();
-#endif
 			break;
 		} else if(strcmp("-d", *argv) == 0 || strcmp("--disk", *argv) == 0) {
 			skip_argc += 2;
@@ -1035,9 +1029,6 @@ int main(int argc, char *argv[]) {
 
 			is_master = false;
 			backup_valid_flag = true;
-#if HEAP_SNAPSHOT
-    		heap_dir_init();
-#endif
 			backup_memory_init();
 			backup_network_setup();
 			int ret = backup_server();
@@ -1093,12 +1084,6 @@ int main(int argc, char *argv[]) {
 
 	extern host_syscall_handler_adv(char *, void *__capability pcc, void *__capability ddc, void *__capability pcc2);
 	host_syscall_handler_adv("monitor", sealed_pcc, sealed_ddc, sealed_pcc2);
-	
-	/*if(resume_flag_x != 0) {
-		printf("cvm resume_flag\n");
-		parse_and_spawn_yaml(yaml_cfg, 0, resume_flag_x);
-		return 0;
-	}*/
 
 	if(yaml_cfg) {
 		parse_and_spawn_yaml(yaml_cfg, 0, resume_flag_x);

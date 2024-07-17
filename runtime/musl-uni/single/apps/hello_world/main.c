@@ -27,8 +27,65 @@
 
 #define MSGY "1"
 
+void *my_malloc(size_t size);
+void my_free(void *ptr);
+void *my_realloc(void *ptr, size_t size);
+
+
+
+#define SIZE 100000000
+
+double compute_flops() {
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
+
+    double sum = 0.0;
+    for (int i = 0; i < SIZE; i++) {
+        sum += (i * 1.0) / (i + 1.0);
+        if(i%(SIZE/10)==0) {
+            printf("compute_flops flag %d, sum :%lf\n", i, sum);
+        }
+    }
+
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    printf("finish compute_flops test in %f\n",(now - then) / 1000.0);
+
+    return sum;
+}
+
+long long compute_iops() {
+
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
+
+    long long sum = 0;
+    for (int i = 0; i < SIZE; i++) {
+        sum += i % (i + 1);
+        if(i%(SIZE/10)==0) {
+            printf("compute_flops flag %d, sum :%ld\n", i, sum);
+        }
+    }    
+
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    printf("finish compute_flops test in %f\n",(now - then) / 1000.0);
+
+    return sum;
+}
+
 void app_main() {
     printf("hello world here! \n ");
+
+    char *buffer = (char *)my_malloc(100);
+    if(buffer == NULL) {
+        printf("test");
+    }
+    memcpy(buffer, MSGX, strlen(MSGX));
+    printf("buffer: %s\n", buffer);
+    printf("buffer address: %p\n", buffer);
 
 
 	char buf[32];
@@ -53,25 +110,15 @@ void app_main() {
         return;
     }
 
-    /*const char* str = "test write: ";
-
-    if (host_write(fd, str, (long)strlen(str)) == -1) {
-        printf("write error 1\n");
-        return;
-    }
-    if (host_write(fd, MSG, (long)sizeof(MSG)) == -1) {
-        printf("write error 2\n");
-        return;
-    }
-
-    printf("write test over \n");*/
+    compute_flops();
+    compute_iops();
 
     struct timeval start, end;
     host_gettimeofday(&start, NULL);
 
 	int i = 0;
     int acc = 0;
-    while(i<50000) {
+    while(i<18000) {
 		i++;
 		
         //sleep(1);
@@ -91,6 +138,9 @@ void app_main() {
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
     printf("finish test runtime in %f\n",(now - then) / 1000.0);
+
+    printf("another buffer: %s", buffer);
+    printf("another buffer address: %p\n", buffer);
 
 
     /*if (host_write(fd, MSGX, (long)sizeof(MSGX)) == -1) {

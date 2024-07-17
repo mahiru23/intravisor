@@ -109,7 +109,7 @@ char dirty_page_map_temp[PAGE_NUM];
 int stack_dirty_page_update(struct c_thread *ct) {
     int dirty_page_num = 0;
     int pages = (ct->stack_size) / PAGE_SIZE;
-    int fd = open("stack_dump.bin", O_RDWR, 0777);
+    int fd = open("snapshot/stack_dump.bin", O_RDWR, 0777);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -197,10 +197,12 @@ int cvm_dumping() {
 
     if(replica_flag == 2) { // in intravisor userspace
         //heartbeat(-1);
+        printf("in intravisor userspace\n");
         ;
     }
     else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
         //heartbeat(-1);
+        printf("in sandbox\n");
         ;
     }
     else { // in kernel
@@ -230,7 +232,7 @@ int cvm_dumping() {
         tag_array[i] = cheri_gettag(elem);
     }
 
-    int fd = open("context_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    int fd = open("snapshot/context_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -254,7 +256,7 @@ int cvm_dumping() {
     int valid_cap_num = get_cap_info(ct->stack, ct->stack_size);
     int dirty_page_num = stack_dirty_page_update(ct);
 
-    int fd3 = open("stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    int fd3 = open("snapshot/stack_cap_tags.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd3 == -1) {
         perror("open");
         exit(EXIT_FAILURE);

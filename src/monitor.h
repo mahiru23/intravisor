@@ -64,7 +64,7 @@
 #include <sys/select.h>
 #include <math.h>
 #include <dirent.h>
-
+#include "uthash/uthash.h"
 #include "intravisor.h"
 #include <arch.h>
 
@@ -525,7 +525,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 /*#define HEARTBEAT_TIMEOUT 5
 #define DISCONNECTION_TIMEOUT 15*/
 
-#define HEARTBEAT_TIMEOUT_SEC 1
+#define HEARTBEAT_TIMEOUT_SEC 2
 #define HEARTBEAT_TIMEOUT_USEC 0
 
 #define DISCONNECTION_TIMEOUT_SEC 15
@@ -554,7 +554,7 @@ struct files_detail {
 	int heap_dirty_page_packet_len;
 };
 
-#define LOCAL_SNAPSHOT 1
+#define SNAPSHOT 1
 #define ASYNC_PIPELINE 1
 extern int *stack_cap_tags_sparse;
 extern int stack_cap_tags_sparse_size;
@@ -598,7 +598,14 @@ extern char *backup_stack_buffer;
 
 // very poor performance with large heap (here is about 1G)
 // still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
-#define HEAP_SNAPSHOT 0
+#define HEAP_SNAPSHOT 1
+// we use uthash to save heap page
+struct page {
+    void *addr; // primary key for hash
+    char content[PAGE_SIZE];
+    char cap_tags[PAGE_SIZE/16]; // PAGE_SIZE / cap_size
+    UT_hash_handle hh;
+};
+
 extern char *heap_dirty_page_packet;
 extern int global_heap_dirty_page_num;
-

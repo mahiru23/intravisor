@@ -165,7 +165,7 @@ void mmap_file_test(struct c_thread *ct, int resume_flag) {
     printf("addr: %p\n", addr);
     
     if(resume_flag == 0) {
-        int fd2 = open("stack_dump.bin", O_RDWR | O_CREAT | O_TRUNC, 0777);
+        int fd2 = open("snapshot/stack_dump.bin", O_RDWR | O_CREAT | O_TRUNC, 0777);
         if (fd2 == -1) {
             perror("open");
             exit(EXIT_FAILURE);

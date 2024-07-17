@@ -206,14 +206,14 @@ void async_heartbeat() {
 int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_cap_num) {
 
     struct files_detail packet_index;
-    packet_index.context_len = get_filesize("context_dump.bin");
-    packet_index.capfiles_len = get_filesize("capfiles_dump.bin");
+    packet_index.context_len = get_filesize("snapshot/context_dump.bin");
+    packet_index.capfiles_len = get_filesize("snapshot/capfiles_dump.bin");
     packet_index.dirty_page_map_len = sizeof(dirty_page_map);
     packet_index.stack_page_len = dirty_page_num * PAGE_SIZE;
     packet_index.stack_cap_tags_len = valid_cap_num * sizeof(int);
     packet_index.fd_list_len = open_fd_list_size();
 #if ASYNC_PIPELINE
-    packet_index.heap_dirty_page_packet_len = global_heap_dirty_page_num;
+    packet_index.heap_dirty_page_packet_len = global_heap_dirty_page_num*sizeof(struct page);
 #elif
     packet_index.heap_dirty_page_packet_len = 0;
 #endif
@@ -239,7 +239,7 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
     pos += sizeof(packet_index);
 
     // thread context
-    int fd_context = open("context_dump.bin", O_RDONLY);
+    int fd_context = open("snapshot/context_dump.bin", O_RDONLY);
     if (fd_context == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -253,7 +253,7 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
     pos += packet_index.context_len;
 
     // capfiles
-    int fd = open("capfiles_dump.bin", O_RDONLY);
+    int fd = open("snapshot/capfiles_dump.bin", O_RDONLY);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -381,8 +381,8 @@ int save_snapshot_to_disk(char *packet) {
     memcpy((void *)(&packet_index), (packet+pos), sizeof(packet_index));
     pos += sizeof(packet_index);
 
-    pos += snapshot_to_file("context_dump.bin", (packet + pos), packet_index.context_len, 0);
-    pos += snapshot_to_file("capfiles_dump.bin", (packet + pos), packet_index.capfiles_len, 0);
+    pos += snapshot_to_file("snapshot/context_dump.bin", (packet + pos), packet_index.context_len, 0);
+    pos += snapshot_to_file("snapshot/capfiles_dump.bin", (packet + pos), packet_index.capfiles_len, 0);
 
     memcpy((void *)(dirty_page_map), (packet+pos), packet_index.dirty_page_map_len);
     pos += packet_index.dirty_page_map_len;
@@ -390,13 +390,13 @@ int save_snapshot_to_disk(char *packet) {
     int get_page_num = 0;
     for(int i=0;i<PAGE_NUM;i++) {
         if (dirty_page_map[i] & MINCORE_MODIFIED) {
-            pos += snapshot_to_file("stack_dump.bin", (packet + pos), PAGE_SIZE, i*PAGE_SIZE);
+            pos += snapshot_to_file("snapshot/stack_dump.bin", (packet + pos), PAGE_SIZE, i*PAGE_SIZE);
         }
     }
 
-    pos += snapshot_to_file("stack_cap_tags.bin", (packet + pos), packet_index.stack_cap_tags_len, 0);
+    pos += snapshot_to_file("snapshot/stack_cap_tags.bin", (packet + pos), packet_index.stack_cap_tags_len, 0);
 
-    pos += snapshot_to_file("fd_list.bin", (packet + pos), packet_index.fd_list_len, 0);
+    pos += snapshot_to_file("snapshot/fd_list.bin", (packet + pos), packet_index.fd_list_len, 0);
 
 #if HEAP_SNAPSHOT
     save_heap_dirty_page_to_disk(packet+pos, packet_index.heap_dirty_page_packet_len);

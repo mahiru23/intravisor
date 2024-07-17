@@ -131,7 +131,7 @@ int host_cap_file_revoke(char *key) {
 
 void host_cap_file_dump() {
     pthread_mutex_lock(&cf_store_lock);
-    int fd = open("capfiles_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    int fd = open("snapshot/capfiles_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);
@@ -170,7 +170,7 @@ void read_context_from_fd(int fd, void *context, size_t len) {
 
 void host_cap_file_resume() {
     pthread_mutex_lock(&cf_store_lock);
-    int fd = open("capfiles_dump.bin", O_RDWR);
+    int fd = open("snapshot/capfiles_dump.bin", O_RDWR);
     if (fd == -1) {
         perror("open");
         exit(EXIT_FAILURE);

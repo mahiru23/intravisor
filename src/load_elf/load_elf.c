@@ -155,13 +155,6 @@ void load_elf(char *file_to_map, void *base_addr, encl_map_info * result) {
 //                                                                      break;
 				}
 
-				if(strcmp("signal_handler", &strtab[ts->st_name]) == 0) {
-//                                                              printf("%ld: %ld %ld %ld %ld %lx %ld\n", j,ts->st_name, ts->st_info, ts->st_other, ts->st_shndx, ts->st_value, ts->st_size);
-//                                                                      printf("string = %s, val=%lx\n", &strtab[ts->st_name], ts->st_value);
-					result->signal_handler = ts->st_value;
-//                                                                      break;
-				}
-
 				if(strcmp("cvm_heap_begin", &strtab[ts->st_name]) == 0) {
 //                                                              printf("%ld: %ld %ld %ld %ld %lx %ld\n", j,ts->st_name, ts->st_info, ts->st_other, ts->st_shndx, ts->st_value, ts->st_size);
 //                                                                      printf("string = %s, val=%lx\n", &strtab[ts->st_name], ts->st_value);
@@ -209,7 +202,7 @@ void load_elf(char *file_to_map, void *base_addr, encl_map_info * result) {
 	if(strcmp(file_to_map, "libu_ffmpeg.so") == 0)
 		extra = 0;
 #endif
-
+	extra += pdr->p_vaddr;
 	result->extra_load = extra;
 	load_segments_size += extra;
 
@@ -221,7 +214,8 @@ void load_elf(char *file_to_map, void *base_addr, encl_map_info * result) {
 		printf("cannot allocate %lx to %p, die\n", ROUNDUP(load_segments_size, 0x1000), base_addr);
 		perror("mmap");
 		while(1) ;
-	}
+	} else
+		printf("mmap: %lx, +%lx, ret= %lx\n", base_addr, ROUNDUP(load_segments_size, 0x1000), full);
 
 	memset(full, 0, ROUNDUP(load_segments_size, 0x1000));
 
