@@ -56,6 +56,15 @@ void heap_page_init(int cid, int resume_flag) {
     }  
 }
 
+void backup_heap_init() {
+    makedir("snapshot");
+    global_heap_fd = open("snapshot/heap_dump.bin", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (global_heap_fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    } 
+}
+
 static struct page * heap_page_add_update(void *addr, const char *cap_tags) {
     struct page *s;
     HASH_FIND_PTR(heap, &addr, s);
@@ -198,9 +207,6 @@ static int memory_page_update(void *addr, unsigned long size, char *dirty_page_m
     // only support async pipeline
     if(is_master & backup_valid_flag) {
 #if ASYNC_PIPELINE
-#if DEBUG
-        printf("save heap_dirty_page_packet\n");
-#endif
         heap_dirty_page_packet = (char *)malloc(dirty_page_num*sizeof(struct page));
         if (heap_dirty_page_packet == NULL) {
             perror("malloc heap_dirty_page_packet error");
@@ -216,6 +222,9 @@ static int memory_page_update(void *addr, unsigned long size, char *dirty_page_m
                 global_heap_dirty_page_num++;
             }
         }
+#if DEBUG
+        printf("save heap_dirty_page_packet\n");
+#endif
 #endif
     }
 
@@ -233,7 +242,7 @@ void heap_dirty_page_snapshot(void *addr, unsigned long size) {
 
 // for backup
 void save_heap_dirty_page_to_disk(void *addr, unsigned long size) {
-    int packet_page_num = size / PAGE_SIZE;
+    int packet_page_num = size / sizeof(struct page);
     for(int i=0; i<packet_page_num; i++) {
         struct page *s = (struct heap *)malloc(sizeof(struct page));
         if(s == NULL) {
@@ -247,6 +256,9 @@ void save_heap_dirty_page_to_disk(void *addr, unsigned long size) {
 
 // for backup
 void save_heap_dirty_page_to_memory(void *addr, unsigned long size) {
+
+    printf("heap packet size: 0X%lx\n\n\n\n\n", size);
+
     int packet_page_num = size / sizeof(struct page);
     for(int i=0; i<packet_page_num; i++) {
         struct page *s_packet = (struct heap *)malloc(sizeof(struct page));

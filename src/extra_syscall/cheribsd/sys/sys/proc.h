@@ -1236,6 +1236,7 @@ void	thread_suspend_one(struct thread *td);
 void	thread_unlink(struct thread *td);
 void	thread_unsuspend(struct proc *p);
 void	thread_wait(struct proc *p);
+void	thread_suspend_one_extra(struct proc *p, struct thread *td);
 void	thread_unsuspend_one_extra(struct proc *p, struct thread *td);
 
 

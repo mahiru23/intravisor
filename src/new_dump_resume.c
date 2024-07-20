@@ -1,7 +1,8 @@
 #include "monitor.h"
 #include <pthread_np.h>
 
-
+int global_capture_count = 0;
+double global_capture_time = 0;
 
 int replica_flag = 0;
 //bool stack_cap_tags[32768]; // max_stack_size = 0x80000
@@ -162,8 +163,41 @@ int cvm_dumping() {
     //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
     ctx.kernel_debug = DEBUG;
+
+    //pause_thread();
+    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
+
+#if ANALYSE
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+#endif
+
+    unsigned long lower_bound = comp_to_mon(ct->sbox->base, ct->sbox);
+    unsigned long upper_bound = comp_to_mon(ct->sbox->top, ct->sbox);
+
+    ctx.lower_bound = lower_bound;
+    ctx.upper_bound = upper_bound;
+
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+
+    int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr); // suspend 
+    unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
+    int suspend_flag = ctx.lower_bound;
+
+    if(suspend_flag == 1) { //suspend
+        ;
+    }
+    else { // not suspend
+
+#if ASYNC_PIPELINE
+        async_heartbeat();
+#elif
+        heartbeat(-1);
+#endif
+        printf("not suspend\n");
+        return 0;
+    }
 
 #if DEBUG
     CHERI_CAP_PRINT(cap_ptr);
@@ -172,33 +206,22 @@ int cvm_dumping() {
     printf("threadid: %d\n", threadid);
 #endif
 
-    pause_thread();
-    get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
-
-#if ANALYSE
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-#endif
-
-    int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);
-    unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
-    unsigned long lower_bound = comp_to_mon(ct->sbox->base, ct->sbox);
-    unsigned long upper_bound = comp_to_mon(ct->sbox->top, ct->sbox);
-
 #if DEBUG
     printf("get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);, cid: %d\n", cid);
     CHERI_CAP_PRINT(ctx.frame.tf_ra);
     CHERI_CAP_PRINT(ctx.frame.tf_sepc);
     printf("replica_flag: %d\n", replica_flag);
     printf("pc_addr: %lx\n", pc_addr);
+    unsigned long new_addr = ctx.frame.tf_sepc;
+    printf("new_addr: %lx\n", new_addr);
     printf("lower_bound: %lx\n", lower_bound);
     printf("upper_bound: %lx\n", upper_bound);
 #endif
 
     if(replica_flag == 2) { // in intravisor userspace
         //heartbeat(-1);
-        printf("in intravisor userspace\n");
-        ;
+        //printf("in intravisor userspace\n");
+        return 0;
     }
     else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
         //heartbeat(-1);
@@ -212,10 +235,10 @@ int cvm_dumping() {
         heartbeat(-1);
 #endif
         printf("in kernel\n");
-        replica_flag = 1;
+        //replica_flag = 1;
         //pthread_mutex_unlock(&ct->sbox->ct_lock);
-        get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-        resume_thread();
+        //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+        //resume_thread();
         return 0;
     }
 
@@ -269,7 +292,9 @@ int cvm_dumping() {
     }
     close(fd3); 
 
+#if DEBUG
     printf("stack_cap_tags end\n");
+#endif
 
     host_cap_file_dump();
 
@@ -302,11 +327,13 @@ int cvm_dumping() {
     gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    printf("capture snapshot of %d in %f, ", cid, (now - then) / 1000.0);
+    //printf("capture snapshot of %d in %f\n", cid, (now - then) / 1000.0);
+    global_capture_count++;
+    global_capture_time += ((now - then) / 1000.0);
 #endif
 
     get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-    resume_thread();
+    //resume_thread();
     return 0;
 }
 

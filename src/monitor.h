@@ -522,11 +522,10 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
 /*async pipeline*/
 #define PORT 8080
-/*#define HEARTBEAT_TIMEOUT 5
-#define DISCONNECTION_TIMEOUT 15*/
 
-#define HEARTBEAT_TIMEOUT_SEC 2
-#define HEARTBEAT_TIMEOUT_USEC 0
+/*timeout*/
+#define HEARTBEAT_TIMEOUT_SEC 0
+#define HEARTBEAT_TIMEOUT_USEC 50000
 
 #define DISCONNECTION_TIMEOUT_SEC 15
 #define DISCONNECTION_TIMEOUT_USEC 0
@@ -534,7 +533,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 #define QUEUE_TIMEOUT_SEC 1
 #define QUEUE_TIMEOUT_USEC 0
 
-#define QUEUE_EMPTY_TIMEOUT_USEC 100
+#define QUEUE_EMPTY_TIMEOUT_USEC 100000
 
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
@@ -554,8 +553,6 @@ struct files_detail {
 	int heap_dirty_page_packet_len;
 };
 
-#define SNAPSHOT 1
-#define ASYNC_PIPELINE 1
 extern int *stack_cap_tags_sparse;
 extern int stack_cap_tags_sparse_size;
 extern int stack_cap_tags_sparse_now_length;
@@ -589,16 +586,9 @@ extern char *backup_stack_buffer;
 #define STACK_CAP_LINE STACK_SIZE/(sizeof(uintcap_t *)*2)
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-
-// test
-#define DEBUG 1
-#define ANALYSE 1
-#define RANDOM_CRASH 0
-#define RANDOM_CRASH_TIMEOUT_SEC 1
-
 // very poor performance with large heap (here is about 1G)
 // still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
-#define HEAP_SNAPSHOT 1
+#define HEAP_SNAPSHOT 0
 // we use uthash to save heap page
 struct page {
     void *addr; // primary key for hash
@@ -609,3 +599,16 @@ struct page {
 
 extern char *heap_dirty_page_packet;
 extern int global_heap_dirty_page_num;
+
+
+// test
+#define SNAPSHOT 1
+#define DEBUG 0
+#define ANALYSE 1
+#define ASYNC_PIPELINE 1
+#define RANDOM_CRASH 0
+#define RANDOM_CRASH_TIMEOUT_SEC 1
+
+extern int global_capture_count;
+extern double global_capture_time;
+

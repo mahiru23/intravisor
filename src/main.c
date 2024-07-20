@@ -356,7 +356,7 @@ void *init_thread(void *arg) {
 	printf("resume_flag_x: %d\n", resume_flag_x);
 	threadid = pthread_getthreadid_np();
 
-#if HEAP_SNAPSHOT | SNAPSHOT
+#if HEAP_SNAPSHOT
     heap_page_init(global_cid, resume_flag_x);
 #endif
 
@@ -643,9 +643,9 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 ////////////////////
 	struct c_thread *ct = cvms[cid].threads;
 
-#if ANALYSE
-	cvms[cid].heap_size = 4097;
-	printf("modify cvms[cid].heap_size = 4097, only for test\n");
+#if (ANALYSE && HEAP_SNAPSHOT && SNAPSHOT)
+	cvms[cid].heap_size = 4097 * PAGE_SIZE;
+	printf("modify cvms[cid] heap page num = 4097, only for test\n");
 #endif
 
 	for(int i = 0; i < MAX_THREADS; i++) {
@@ -990,6 +990,7 @@ int main(int argc, char *argv[]) {
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {
 			yaml_cfg = *++argv;
 			printf("Using yaml.cfg = %s\n", yaml_cfg);
+			makedir("snapshot");
 			break;
 		} else if(strcmp("-d", *argv) == 0 || strcmp("--disk", *argv) == 0) {
 			skip_argc += 2;
@@ -1029,6 +1030,9 @@ int main(int argc, char *argv[]) {
 
 			is_master = false;
 			backup_valid_flag = true;
+			/*----------------------*/
+			backup_heap_init();
+			/*----------------------*/
 			backup_memory_init();
 			backup_network_setup();
 			int ret = backup_server();

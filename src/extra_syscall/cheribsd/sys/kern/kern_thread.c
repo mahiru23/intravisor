@@ -1625,13 +1625,80 @@ thread_unsuspend(struct proc *p)
  * thread_unsuspend_one global version
  */
 void
+thread_suspend_one_extra(struct proc *p, struct thread *td)
+{
+	thread_stopped(p);
+	if (P_SHOULDSTOP(p) == P_STOPPED_SINGLE) {
+		if (p->p_numthreads == p->p_suspcount + 1) {
+			thread_lock(p->p_singlethread);
+			int wakeup_swapper = thread_unsuspend_one(
+				p->p_singlethread, p, false);
+			if (wakeup_swapper)
+				kick_proc0();
+		}
+	}
+	/*
+		* When a thread suspends, it just
+		* gets taken off all queues.
+		*/
+	thread_suspend_one(td);
+	// return_instead == 0
+	p->p_boundary_count++;
+	td->td_flags |= TDF_BOUNDARY;
+}
+
+/*
+ * thread_unsuspend_one global version
+ */
+void
 thread_unsuspend_one_extra(struct proc *p, struct thread *td)
 {
 	THREAD_LOCK_ASSERT(td, MA_OWNED);
 	KASSERT(TD_IS_SUSPENDED(td), ("Thread not suspended"));
 	TD_CLR_SUSPENDED(td);
 	td->td_flags &= ~TDF_ALLPROCSUSP;
-	p->p_suspcount--;
+	//p->p_suspcount--;
+
+	if (td->td_proc == p) {
+		PROC_SLOCK_ASSERT(p, MA_OWNED);
+		p->p_suspcount--;
+		if ((td->td_flags & TDF_BOUNDARY) != 0) {
+			td->td_flags &= ~TDF_BOUNDARY;
+			p->p_boundary_count--;
+		}
+	}
+
+	/*------------------*/
+	KASSERT(td->td_proc->p_state != PRS_ZOMBIE,
+	    ("setrunnable: pid %d is a zombie", td->td_proc->p_pid));
+
+	int swapin = 0;
+
+	switch (TD_GET_STATE(td)) {
+	case TDS_RUNNING:
+	case TDS_RUNQ:
+		break;
+	case TDS_CAN_RUN:
+		KASSERT((td->td_flags & TDF_INMEM) != 0,
+		    ("my_setrunnable: td %p not in mem, flags 0x%X inhibit 0x%X",
+		    td, td->td_flags, td->td_inhibitors));
+		/* unlocks thread lock according to flags */
+		//sched_wakeup(td, srqflags);
+		sched_wakeup_extra(td);
+		break;
+	case TDS_INHIBITED:
+		if (td->td_inhibitors == TDI_SWAPPED &&
+		    (td->td_flags & TDF_SWAPINREQ) == 0) {
+			td->td_flags |= TDF_SWAPINREQ;
+			swapin = 1;
+		}
+		break;
+	default:
+		break;
+	}
+	if(swapin == 1) {
+		kick_proc0();
+	}
 }
 
 

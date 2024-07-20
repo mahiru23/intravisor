@@ -76,18 +76,22 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
 
     kernel_debug = ctx_in.kernel_debug;
     if(kernel_debug == 1) {
-        log(LOG_WARNING, "Debug: thread is %p\n", t);
+        log(LOG_WARNING, "Debug: threadid is %d\n", t->td_tid);
+        log(LOG_WARNING, "Debug: td is %d\n", td->td_tid);
     }
 
     PROC_UNLOCK(p);
 
     if(pid_flag == -1) //suspend
     {
+        PROC_LOCK(p);
         PROC_SLOCK(p);
         thread_lock(t);
-        thread_suspend_one(t);
+        //thread_suspend_one(t);
+        thread_suspend_one_extra(p, t);
         thread_unlock(t);
         PROC_SUNLOCK(p);
+        PROC_UNLOCK(p);
         if(kernel_debug == 1) {
             log(LOG_WARNING, "Debug: thread is suspend \n");
         }
@@ -113,7 +117,32 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
     {
         PROC_LOCK(p);
         thread_lock(t);
+
         memcpy(&(ctx_in.frame), t->td_frame, sizeof(struct trapframe)); // context
+        unsigned long pc_addr = cheri_getaddress(t->td_frame->tf_sepc);
+        if((pc_addr >= ctx_in.lower_bound) && (pc_addr <= ctx_in.upper_bound) && \ 
+        (t->td_inhibitors == 0) && (t->td_blocked == NULL) &&
+        (t->td_turnstile == NULL)) //suspend in sandbox
+        {
+            PROC_SLOCK(p);
+            //thread_suspend_one(t);
+            thread_suspend_one_extra(p, t);
+            PROC_SUNLOCK(p);
+            if(kernel_debug == 1) {
+                log(LOG_WARNING, "Debug: thread is suspend \n");
+            }
+            ctx_in.lower_bound = 1;
+        }
+        else {
+            ctx_in.lower_bound = -1;
+            if(t->td_inhibitors != 0 && kernel_debug == 1) {
+                log(LOG_WARNING, "Debug: t->td_inhibitors != 0, is %d \n", t->td_inhibitors);
+            }
+            if(t->td_blocked != NULL && kernel_debug == 1) {
+                log(LOG_WARNING, "Debug: t->td_blocked != NULL\n");
+            }
+        }
+        
         error = copyoutcap(&ctx_in, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
         if (error) {
             log(LOG_WARNING, "copyoutcap error\n");
@@ -121,9 +150,15 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
             PROC_UNLOCK(p);
             return error;
         }
+
+        
+
         if(kernel_debug == 1) {
             log(LOG_WARNING, "Debug: capture snapshot \n");
+            //log(LOG_WARNING, "Debug: pc_addr: 0x%lx \n", pc_addr);
         }
+
+
         thread_unlock(t);
         PROC_UNLOCK(p);
     }
