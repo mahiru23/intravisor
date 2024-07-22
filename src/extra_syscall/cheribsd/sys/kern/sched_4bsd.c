@@ -1143,6 +1143,12 @@ sched_wakeup_extra(struct thread *td)
 	ts->ts_slptime = 0;
 }
 
+void
+sched_rem_extra(struct thread *td)
+{
+	printf("4bsd sched_rem_extra, should not be here!!!!!\n");
+}
+
 #ifdef SMP
 static int
 forward_wakeup(int cpunum)

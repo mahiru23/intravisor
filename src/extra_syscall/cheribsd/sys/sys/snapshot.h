@@ -16,6 +16,8 @@ struct thread_snapshot {
     int kernel_debug;
     unsigned long lower_bound;
     unsigned long upper_bound;
+    int seq_number;
+    int suspend_flag;
 };
 
 // int get_thread_snapshot(pid_t pid, pthread_t tid, int threadid, struct thread_snapshot *ctx);

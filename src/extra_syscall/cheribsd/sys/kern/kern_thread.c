@@ -1627,6 +1627,10 @@ thread_unsuspend(struct proc *p)
 void
 thread_suspend_one_extra(struct proc *p, struct thread *td)
 {
+	if(TD_ON_RUNQ(td)) {
+		sched_rem(td);
+	}
+
 	thread_stopped(p);
 	if (P_SHOULDSTOP(p) == P_STOPPED_SINGLE) {
 		if (p->p_numthreads == p->p_suspcount + 1) {
@@ -1668,6 +1672,7 @@ thread_unsuspend_one_extra(struct proc *p, struct thread *td)
 		}
 	}
 
+
 	/*------------------*/
 	KASSERT(td->td_proc->p_state != PRS_ZOMBIE,
 	    ("setrunnable: pid %d is a zombie", td->td_proc->p_pid));
@@ -1682,9 +1687,7 @@ thread_unsuspend_one_extra(struct proc *p, struct thread *td)
 		KASSERT((td->td_flags & TDF_INMEM) != 0,
 		    ("my_setrunnable: td %p not in mem, flags 0x%X inhibit 0x%X",
 		    td, td->td_flags, td->td_inhibitors));
-		/* unlocks thread lock according to flags */
-		//sched_wakeup(td, srqflags);
-		sched_wakeup_extra(td);
+		sched_wakeup(td, 0);
 		break;
 	case TDS_INHIBITED:
 		if (td->td_inhibitors == TDI_SWAPPED &&

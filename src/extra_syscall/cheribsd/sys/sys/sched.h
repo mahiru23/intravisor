@@ -142,6 +142,8 @@ void	sched_preempt(struct thread *td);
 void	sched_relinquish(struct thread *td);
 void	sched_rem(struct thread *td);
 void	sched_wakeup(struct thread *td, int srqflags);
+
+void	sched_rem_extra(struct thread *td);
 void	sched_wakeup_extra(struct thread *td);
 
 /*

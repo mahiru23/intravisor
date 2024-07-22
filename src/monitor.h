@@ -507,7 +507,8 @@ extern int replica_flag;
 #define REG_NUM 33
 #define SUSPEND_THREAD -1
 #define RESUEM_THREAD -2
-#define CAPTURE_SNAPSHOT -6
+#define CAPTURE_SNAPSHOT -5
+#define SUSPEND_AND_CAPTURE -6
 int cvm_dumping();
 
 //extern bool stack_cap_tags[32768];
@@ -588,7 +589,7 @@ extern char *backup_stack_buffer;
 
 // very poor performance with large heap (here is about 1G)
 // still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
-#define HEAP_SNAPSHOT 0
+#define HEAP_SNAPSHOT 1
 // we use uthash to save heap page
 struct page {
     void *addr; // primary key for hash

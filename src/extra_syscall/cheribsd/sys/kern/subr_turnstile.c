@@ -287,7 +287,9 @@ propagate_priority(struct thread *td)
 		 * If we aren't blocked on a lock, we should be.
 		 */
 		if(!TD_ON_LOCK(td)) {
-			printf("top: %p, ts:%p\n", top, ts);
+			printf("(curthread)->td_tid: %d\n", (curthread)->td_tid);
+			printf("top: %p, ts: %p\n, (td)->td_inhibitors: %d\n", top, ts, (td)->td_inhibitors);
+			printf("td_blocked: %p\n", (td)->td_blocked);
 			printf("thread %d(%s):%d holds %s but isn't blocked on a lock\n",
 				td->td_tid, td->td_name, TD_GET_STATE(td),
 				ts->ts_lockobj->lo_name);

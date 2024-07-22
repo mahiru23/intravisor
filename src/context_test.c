@@ -119,12 +119,44 @@ void set_cap_info(void *addr, size_t size) {
     }
 }
 
+void suspend_user_cVM() {
+    struct thread_snapshot ctx;
+    ctx.kernel_debug = DEBUG;
+    ctx.lower_bound = 0;
+    ctx.upper_bound = ULONG_MAX - 1;
+    ctx.seq_number = 0;
+    void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+
+    while(1) {
+        get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr); // suspend
+        if(ctx.suspend_flag == -1) {
+            break;
+        }
+        usleep(10000);
+    }
+}
+
+void resume_user_cVM() {
+    struct thread_snapshot ctx;
+    ctx.kernel_debug = DEBUG;
+    ctx.lower_bound = 0;
+    ctx.upper_bound = ULONG_MAX - 1;
+    ctx.seq_number = 0;
+    void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
+    | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
+    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr); // suspend
+    printf("resume_user_cVM: ignore ERROR in resume_syscall, this is ok. \n");
+}
+
+
 void thread_resume(int resume_flag) {
     pthread_detach(pthread_self());
 
 #if DEBUG
     printf("resume_flag: %d\n", resume_flag);
 #endif
+    suspend_user_cVM();
 
     int cid = global_cid;
     struct c_thread *ct = cvms[cid].threads;
@@ -252,6 +284,7 @@ void thread_resume(int resume_flag) {
 
     set_cap_info(ct->stack, ct->stack_size);
     resume_from_snapshot(pid, threadid, cap_ptr); // syscall
+    resume_user_cVM();
     printf("resume_from_snapshot over\n");
 }
 

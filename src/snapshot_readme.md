@@ -1,6 +1,13 @@
 
-# start
 
+# install kernel patch
+cd intravisor/src/extra_syscall/  
+./install.sh cheribsd/ $HOME/cheri/cheribsd/  
+./install.sh dirtycap/ $HOME/cheri/cheribsd/  
+cd cheribuild/  
+./cheribuild.py run-riscv64-hybrid --enable-hybrid-targets -d  
+
+# start
 qemu-mount-rootfs.sh  
 
 # disable ASLR

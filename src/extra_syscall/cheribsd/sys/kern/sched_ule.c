@@ -2336,6 +2336,13 @@ sched_wakeup(struct thread *td, int srqflags)
 void
 sched_wakeup_extra(struct thread *td)
 {
+
+	//TDQ_LOCK()
+
+	//sched_wakeup(td, 0);
+
+
+
 	struct td_sched *ts;
 	THREAD_LOCK_ASSERT(td, MA_OWNED);
 	ts = td_get_sched(td);
@@ -2759,6 +2766,26 @@ sched_rem(struct thread *td)
 	TD_SET_CAN_RUN(td);
 	if (td->td_priority == tdq->tdq_lowpri)
 		tdq_setlowpri(tdq, NULL);
+}
+
+void
+sched_rem_extra(struct thread *td)
+{
+	struct tdq *tdq;
+	tdq = TDQ_CPU(td_get_sched(td)->ts_cpu);
+	int flag = 0;
+	if(mtx_owned(TDQ_LOCKPTR((tdq)))) {
+		flag = 1;
+		printf("sched_rem_extra: mtx_owned(TDQ_LOCKPTR((td))) != curthread\n");
+		TDQ_LOCK(tdq);
+	}
+	TDQ_LOCK_ASSERT(tdq, MA_OWNED);
+
+	sched_rem(td);
+
+	if(flag == 1) {
+		TDQ_UNLOCK(tdq);
+	}
 }
 
 /*

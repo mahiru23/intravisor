@@ -1,7 +1,8 @@
 #include "monitor.h"
 #include <pthread_np.h>
 
-int global_capture_count = 0;
+int seq_num = 0; // snapshot counter to analyse perf, != global_capture_count, count all epoch
+int global_capture_count = 0; // only count suspend
 double global_capture_time = 0;
 
 int replica_flag = 0;
@@ -177,15 +178,16 @@ int cvm_dumping() {
 
     ctx.lower_bound = lower_bound;
     ctx.upper_bound = upper_bound;
-
+    seq_num++;
+    ctx.seq_number = seq_num;
+    
     void * __capability cap_ptr = cheri_ptrperm(&ctx, 1000000000, CHERI_PERM_GLOBAL | CHERI_PERM_LOAD | CHERI_PERM_STORE \
     | CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP | CHERI_PERM_STORE_LOCAL_CAP | CHERI_PERM_CCALL | CHERI_PERMS_HWALL);
 
-    int ret = get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr); // suspend 
+    get_thread_snapshot(SUSPEND_AND_CAPTURE, threadid, cap_ptr); // suspend & capture
     unsigned long pc_addr = cheri_getaddress(ctx.frame.tf_sepc);
-    int suspend_flag = ctx.lower_bound;
 
-    if(suspend_flag == 1) { //suspend
+    if(ctx.suspend_flag == -1) { //suspend
         ;
     }
     else { // not suspend
@@ -196,6 +198,8 @@ int cvm_dumping() {
         heartbeat(-1);
 #endif
         printf("not suspend\n");
+        printf("ctx.suspend_flag = 0x%lx\n", ctx.suspend_flag);
+        printf("seq_num = %d\n", seq_num);
         return 0;
     }
 
@@ -218,6 +222,8 @@ int cvm_dumping() {
     printf("upper_bound: %lx\n", upper_bound);
 #endif
 
+
+    // TODO: this state-machine (with replica_flag) is for cvm-syscall copy, mat not use in pure async
     if(replica_flag == 2) { // in intravisor userspace
         //heartbeat(-1);
         //printf("in intravisor userspace\n");
@@ -225,7 +231,7 @@ int cvm_dumping() {
     }
     else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
         //heartbeat(-1);
-        printf("in sandbox\n");
+        //printf("in sandbox\n");
         ;
     }
     else { // in kernel
@@ -234,7 +240,7 @@ int cvm_dumping() {
 #elif
         heartbeat(-1);
 #endif
-        printf("in kernel\n");
+        //printf("in kernel\n");
         //replica_flag = 1;
         //pthread_mutex_unlock(&ct->sbox->ct_lock);
         //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
@@ -332,7 +338,15 @@ int cvm_dumping() {
     global_capture_time += ((now - then) / 1000.0);
 #endif
 
+    //ctx.kernel_debug = 1;
+    //printf("start resume!!!\n");
     get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+
+    if(seq_num > 500) {
+        printf("seq_num > 500, snapshot crash!\n");
+        exit(-1);
+    }
+    //printf("finish resume!!!\n");
     //resume_thread();
     return 0;
 }
