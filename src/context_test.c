@@ -133,7 +133,8 @@ void suspend_user_cVM() {
         if(ctx.suspend_flag == -1) {
             break;
         }
-        usleep(10000);
+        usleep(100000);
+        printf("try to suspend master app\n");
     }
 }
 

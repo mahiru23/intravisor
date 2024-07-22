@@ -376,8 +376,14 @@ void *init_thread(void *arg) {
 		cinv_resume_aux(tp_args[0],	//local_cap_store
 			(void *) &cinv_args);
 		capture_or_resume(resume_flag_x);
+
+		// keep thread state at RUNQ
+		int ix=0;
 		while(1) {
-			sleep(10);
+			ix++;
+			if(ix>10000000){
+				ix=0;
+			}
 		}
 	}
 
