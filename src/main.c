@@ -649,9 +649,9 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 ////////////////////
 	struct c_thread *ct = cvms[cid].threads;
 
-#if (ANALYSE && HEAP_SNAPSHOT && SNAPSHOT)
-	cvms[cid].heap_size = 4097 * PAGE_SIZE;
-	printf("modify cvms[cid] heap page num = 4097, only for test\n");
+#if (ANALYSE && HEAP_SNAPSHOT && SNAPSHOT && SMALL_HEAP)
+	cvms[cid].heap_size = SMALL_HEAP_SIZE * PAGE_SIZE;
+	printf("modify cvms[cid] heap page num = %d, only for test\n", SMALL_HEAP_SIZE);
 #endif
 
 	for(int i = 0; i < MAX_THREADS; i++) {

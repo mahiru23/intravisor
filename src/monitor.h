@@ -502,7 +502,7 @@ int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, v
 extern void *__capability global_sealcap;
 extern lwpid_t threadid;
 extern int global_cid;
-extern int replica_flag;
+//extern int replica_flag;
 
 #define REG_NUM 33
 #define SUSPEND_THREAD -1
@@ -512,9 +512,9 @@ extern int replica_flag;
 int cvm_dumping();
 
 //extern bool stack_cap_tags[32768];
-extern pthread_mutex_t mutex;
+/*extern pthread_mutex_t mutex;
 extern pthread_cond_t cond;
-extern int is_paused;
+extern int is_paused;*/
 
 /*identify state machine*/
 extern bool master_valid_flag;
@@ -525,8 +525,9 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 #define PORT 8080
 
 /*timeout*/
-#define HEARTBEAT_TIMEOUT_SEC 0
-#define HEARTBEAT_TIMEOUT_USEC 50000
+/*TDDO: write config*/
+#define HEARTBEAT_TIMEOUT_SEC 10
+#define HEARTBEAT_TIMEOUT_USEC 0
 
 #define DISCONNECTION_TIMEOUT_SEC 15
 #define DISCONNECTION_TIMEOUT_USEC 0
@@ -538,7 +539,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
-extern int full_copy_flag;
+extern int full_copy_flag; // first time copy whole stack
 
 extern int global_socket;
 extern int master_checkpoint; // now checkpoint auto increment, timestamp may be better?
@@ -587,9 +588,6 @@ extern char *backup_stack_buffer;
 #define STACK_CAP_LINE STACK_SIZE/(sizeof(uintcap_t *)*2)
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-// very poor performance with large heap (here is about 1G)
-// still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
-#define HEAP_SNAPSHOT 1
 // we use uthash to save heap page
 struct page {
     void *addr; // primary key for hash
@@ -602,14 +600,22 @@ extern char *heap_dirty_page_packet;
 extern int global_heap_dirty_page_num;
 
 
-// test
+// test config (rewrite in config)
+// very poor performance with large heap (here is about 1G)
+// still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
 #define SNAPSHOT 1
+#define HEAP_SNAPSHOT 1
+#define SMALL_HEAP 1
+#define SMALL_HEAP_SIZE 4097
 #define DEBUG 0
 #define ANALYSE 1
 #define ASYNC_PIPELINE 1
 #define RANDOM_CRASH 0
 #define RANDOM_CRASH_TIMEOUT_SEC 1
 
+// analyse
+extern pthread_mutex_t snapshot_mtx;
+extern int seq_num;
 extern int global_capture_count;
 extern double global_capture_time;
 

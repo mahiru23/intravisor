@@ -75,7 +75,7 @@ int open_fd(int fd, const char *pathname, int flags, mode_t mode) {
     }
 
 	if(i == MAX_FD_NUMS) {
-		printf("open_fd: no empty fd, die\n");
+		printf("open_fd: no empty fd position in fd_list, die, MAX_FD_NUMS: %d\n", MAX_FD_NUMS);
 		while(1) ;
 	}
     pthread_mutex_unlock(&fd_store_lock);

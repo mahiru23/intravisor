@@ -206,6 +206,18 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         thread_lock(t);
 
         memcpy(&(ctx_in.frame), t->td_frame, sizeof(struct trapframe)); // context
+
+        /* float regs save */
+        struct pcb *tpcb;
+        //critical_enter();
+        tpcb = t->td_pcb;
+        memcpy(ctx_in.mc_fpregs.fp_x, tpcb->pcb_x,
+            sizeof(ctx_in.mc_fpregs.fp_x));
+        ctx_in.mc_fpregs.fp_fcsr = tpcb->pcb_fcsr;
+        ctx_in.mc_fpregs.fp_flags = tpcb->pcb_fpflags;
+        //critical_exit();
+        /*------------------*/
+
         error = copyoutcap(&ctx_in, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
         if (error) {
             log(LOG_WARNING, "copyoutcap error\n");
@@ -231,7 +243,21 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
         int ret = suspend_thread_with_flags(p, t, ctx_in.lower_bound, ctx_in.upper_bound, kernel_debug);
         ctx_in.suspend_flag = ret;
 
-        memcpy(&(ctx_in.frame), t->td_frame, sizeof(struct trapframe)); // context
+        if(ret == -1) {
+            memcpy(&(ctx_in.frame), t->td_frame, sizeof(struct trapframe)); // gpregs context
+
+            /* float regs save */
+            struct pcb *tpcb;
+            //critical_enter();
+            tpcb = t->td_pcb;
+            memcpy(ctx_in.mc_fpregs.fp_x, tpcb->pcb_x,
+                sizeof(ctx_in.mc_fpregs.fp_x));
+            ctx_in.mc_fpregs.fp_fcsr = tpcb->pcb_fcsr;
+            ctx_in.mc_fpregs.fp_flags = tpcb->pcb_fpflags;
+            //critical_exit();
+            /*------------------*/
+        }
+
         error = copyoutcap(&ctx_in, ctx, sizeof(struct thread_snapshot)); // copyout to userspace
         if (error) {
             log(LOG_WARNING, "copyoutcap error\n");
@@ -240,7 +266,13 @@ int	kern_get_thread_snapshot(struct thread *td, pid_t pid_flag, int threadid, st
             return error;
         }
         if(kernel_debug == 1) {
-            log(LOG_WARNING, "Debug: capture snapshot \n");
+            if(ret == -1) {
+                log(LOG_WARNING, "Debug: suspend and capture snapshot \n");
+            }
+            else {
+                log(LOG_WARNING, "Debug: not suspend so not capture snapshot \n");
+            }
+            
         }
 
         thread_unlock(t);
@@ -319,6 +351,18 @@ int	kern_resume_from_snapshot(struct thread *td, pid_t pid, int threadid, struct
     t->td_frame->tf_sstatus = ctx_in.frame.tf_sstatus;
     /*t->td_frame->tf_stval = ctx_in.frame.tf_stval;
     t->td_frame->tf_scause = ctx_in.frame.tf_scause;*/
+
+
+    /* float regs set */
+    struct pcb *tpcb;
+    //critical_enter();
+    tpcb = t->td_pcb;
+    memcpy(tpcb->pcb_x, ctx_in.mc_fpregs.fp_x,
+        sizeof(ctx_in.mc_fpregs.fp_x));
+    tpcb->pcb_fcsr = ctx_in.mc_fpregs.fp_fcsr;
+    tpcb->pcb_fpflags = ctx_in.mc_fpregs.fp_flags;
+    //critical_exit();
+    /*------------------*/
 
     if(ctx_in.kernel_debug == 1) {
         log(LOG_WARNING, "t->td_frame ok\n");

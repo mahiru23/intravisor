@@ -11,8 +11,17 @@
 #include <machine/pcb.h>
 #include <machine/frame.h>
 
+#include <sys/ucontext.h>
+#include <machine/cpu.h>
+#include <machine/pte.h>
+#include <machine/riscvreg.h>
+
+
+
 struct thread_snapshot {
-    struct trapframe frame;
+    struct trapframe frame; // may replaced by mcp
+    struct fpregs mc_fpregs;
+    //mcontext_t mcp;
     int kernel_debug;
     unsigned long lower_bound;
     unsigned long upper_bound;

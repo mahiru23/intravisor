@@ -580,5 +580,21 @@ int sparse_encode(int *arr, int size, int* encode_arr, int encode_size) {
 
 
 
+/*pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int is_paused = 0;
+
+void pause_thread() {
+    pthread_mutex_lock(&mutex);
+    is_paused = 1;
+    pthread_mutex_unlock(&mutex);
+}
+
+void resume_thread() {
+    pthread_mutex_lock(&mutex);
+    is_paused = 0;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
+}*/
 
 

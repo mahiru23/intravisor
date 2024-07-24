@@ -15,6 +15,7 @@
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -24,6 +25,8 @@
 #define MSG "hello world, just a hostcall test here \n"
 
 #define MSGX "congrats, file test success! \n"
+
+#define MSGZ "just a printf test hope it works!!!!! \n"
 
 #define MSGY "1"
 
@@ -39,12 +42,12 @@ double compute_flops() {
     struct timeval start, end;
     host_gettimeofday(&start, NULL);
 
-    double sum = 0.0;
-    for (int i = 0; i < SIZE; i++) {
-        sum += (i * 1.0) / (i + 1.0);
-        if(i%(SIZE/10)==0) {
-            printf("compute_flops flag %d, sum :%lf\n", i, sum);
+    for(int i=0;i<50;i++) {
+        double sum = 1.0 + 1000.0*(i);
+        for (int j = 0; j < SIZE; j++) {
+            sum += (j * 1.0) / (j + 1.0);
         }
+        printf("compute_flops flag %d, sum :%lf\n", i, sum);
     }
 
     host_gettimeofday(&end, NULL);
@@ -52,7 +55,7 @@ double compute_flops() {
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
     printf("finish compute_flops test in %f\n",(now - then) / 1000.0);
 
-    return sum;
+    return 0;
 }
 
 long long compute_iops() {
@@ -71,7 +74,7 @@ long long compute_iops() {
     host_gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    printf("finish compute_flops test in %f\n",(now - then) / 1000.0);
+    printf("finish compute_iops test in %f\n",(now - then) / 1000.0);
 
     return sum;
 }
@@ -92,7 +95,7 @@ void app_main() {
 	char cap[16];		//place to store the capability
 	long size;
 
-	host_cap_prb("test1", cap, &size);
+	//host_cap_prb("test1", cap, &size);
 	//copy_from_cap(buf, cap, 32);
 
 	//host_write_out(buf, 32);
@@ -111,14 +114,14 @@ void app_main() {
     }
 
     compute_flops();
-    compute_iops();
+    //compute_iops();
 
     struct timeval start, end;
     host_gettimeofday(&start, NULL);
 
 	int i = 0;
     int acc = 0;
-    while(i<18000) {
+    /*while(i<18000) {
 		i++;
 		
         //sleep(1);
@@ -132,7 +135,7 @@ void app_main() {
                 return;
             }
 		}
-    }
+    }*/
 
     host_gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));

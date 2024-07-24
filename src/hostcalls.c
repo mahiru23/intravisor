@@ -405,30 +405,6 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 	__intcap_t ret = 0;
 //      struct lkl_disk *disk;
 
-	//pthread_mutex_lock(&ct->sbox->ct_lock);
-
-	if(replica_flag == 1) {
-		replica_flag = 2;
-		//printf("replica_flag =!!!= 1\n");
-		if (kill(getpid(), SIGALRM) == -1) {
-			perror("kill error");
-			return 1;
-		}
-	}
-
-	//pthread_mutex_unlock(&ct->sbox->ct_lock);
-
-	pthread_mutex_lock(&mutex);
-	while (replica_flag == 2 || is_paused) {
-		pthread_cond_wait(&cond, &mutex);
-	}
-	pthread_mutex_unlock(&mutex);
-
-	/*while(replica_flag == 2) {
-		sleep(1);
-	}*/
-
-	//printf("replica_flag loop end\n");
 
 	switch (t5) {
 	case 1:
@@ -580,11 +556,17 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 #endif
 #else
 	case 13:
+#if SNAPSHOT
 		if(is_master & backup_valid_flag) {
 			kill_backup();
 			sleep(2);
 		}
+	#if ANALYSE
+		print_snapshot_statistics();
+	#endif
+#endif
 		destroy_carrie_thread(ct->sbox->threads, 0);
+		exit(-1);
 		break;
 	case 200:
 		ret = nanosleep(comp_to_mon(a0, ct->sbox), comp_to_mon(a1, ct->sbox));
@@ -785,21 +767,25 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		break;
 	case 803:
 		ret = close(a0);
+#if SNAPSHOT
 		if(ret != -1) {
 			close_fd(a0);
 		}
 		if((is_master & backup_valid_flag) && ret != -1) {
 			send_to_backup_op(803, a0);
 		}
+#endif
 		break;
 	case 804:
 		ret = access(comp_to_mon(a0, ct->sbox), a1);
 		break;
 	case 808:
 		ret = truncate(comp_to_mon(a0, ct->sbox), a1);
+#if SNAPSHOT
 		if((is_master & backup_valid_flag) && ret != -1) {
 			send_to_backup_op(808, comp_to_mon(a0, ct->sbox), a1);
 		}
+#endif
 		break;
 	case 809:
 //                      printf("read = %d, %p, %d\n", a0, comp_to_mon(a1, ct->sbox), a2);
@@ -808,6 +794,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 		break;
 	case 810:
 		ret = write(a0, comp_to_mon(a1, ct->sbox), a2);
+#if SNAPSHOT
 		if((is_master & backup_valid_flag) && ret != -1) {
 			off_t current_pos = lseek(a0, 0, SEEK_CUR);
 			if (current_pos == -1) {
@@ -818,16 +805,19 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 			printf("sender comp_to_mon(a1, ct->sbox): %s\n\n\n\n", comp_to_mon(a1, ct->sbox));
 			send_to_backup_op(810, a0, comp_to_mon(a1, ct->sbox), a2, current_pos);
 		}
+#endif
 		break;
 	case 811:
 //                      ret = open(comp_to_mon(a0, ct->sbox), a1, a2);
 		ret = open(comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
+#if SNAPSHOT
 		if(ret != -1) {
 			open_fd(ret, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666);
 		}
 		if((is_master & backup_valid_flag) && ret != -1) {
 			send_to_backup_op(811, comp_to_mon(a0, ct->sbox), O_RDWR | O_CREAT, 0666, ret);
 		}
+#endif
 		break;
 	case 812:
 //                      printf("lseek set %d %d %d\n", a0, a1, a2);

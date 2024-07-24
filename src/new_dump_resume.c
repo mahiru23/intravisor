@@ -4,31 +4,15 @@
 int seq_num = 0; // snapshot counter to analyse perf, != global_capture_count, count all epoch
 int global_capture_count = 0; // only count suspend
 double global_capture_time = 0;
+pthread_mutex_t snapshot_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-int replica_flag = 0;
-//bool stack_cap_tags[32768]; // max_stack_size = 0x80000
-
+/*TODO: this part should rewrite?*/
+/*----------------------*/
+// int replica_flag = 0; 
 int *stack_cap_tags_sparse = NULL;
 int stack_cap_tags_sparse_size;
 int stack_cap_tags_sparse_now_length;
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-int is_paused = 0;
-
-
-void pause_thread() {
-    pthread_mutex_lock(&mutex);
-    is_paused = 1;
-    pthread_mutex_unlock(&mutex);
-}
-
-void resume_thread() {
-    pthread_mutex_lock(&mutex);
-    is_paused = 0;
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&mutex);
-}
+/*----------------------*/
 
 int get_cap_info(void *stack, size_t size) {
     uintcap_t *stack_ptr = (uintcap_t *)(stack);
@@ -159,9 +143,10 @@ int stack_dirty_page_update(struct c_thread *ct) {
 // TODO: but it seems not good, so disable suspend & resume syscall here
 int cvm_dumping() {
 
+    pthread_mutex_lock(&snapshot_mtx);
+
     int cid = global_cid; // todo: arg?
     struct c_thread *ct = cvms[cid].threads;
-    //pthread_mutex_lock(&ct->sbox->ct_lock); // thread_lock
     struct thread_snapshot ctx;
     ctx.kernel_debug = DEBUG;
 
@@ -198,8 +183,11 @@ int cvm_dumping() {
         heartbeat(-1);
 #endif
         printf("not suspend\n");
-        printf("ctx.suspend_flag = 0x%lx\n", ctx.suspend_flag);
+        printf("ctx.suspend_flag = %d\n", ctx.suspend_flag);
         printf("seq_num = %d\n", seq_num);
+
+        pthread_mutex_unlock(&snapshot_mtx);
+
         return 0;
     }
 
@@ -214,7 +202,6 @@ int cvm_dumping() {
     printf("get_thread_snapshot(CAPTURE_SNAPSHOT, threadid, cap_ptr);, cid: %d\n", cid);
     CHERI_CAP_PRINT(ctx.frame.tf_ra);
     CHERI_CAP_PRINT(ctx.frame.tf_sepc);
-    printf("replica_flag: %d\n", replica_flag);
     printf("pc_addr: %lx\n", pc_addr);
     unsigned long new_addr = ctx.frame.tf_sepc;
     printf("new_addr: %lx\n", new_addr);
@@ -223,30 +210,6 @@ int cvm_dumping() {
 #endif
 
 
-    // TODO: this state-machine (with replica_flag) is for cvm-syscall copy, mat not use in pure async
-    if(replica_flag == 2) { // in intravisor userspace
-        //heartbeat(-1);
-        //printf("in intravisor userspace\n");
-        return 0;
-    }
-    else if(pc_addr >= lower_bound && pc_addr <= upper_bound) { // in sandbox
-        //heartbeat(-1);
-        //printf("in sandbox\n");
-        ;
-    }
-    else { // in kernel
-#if ASYNC_PIPELINE
-        async_heartbeat();
-#elif
-        heartbeat(-1);
-#endif
-        //printf("in kernel\n");
-        //replica_flag = 1;
-        //pthread_mutex_unlock(&ct->sbox->ct_lock);
-        //get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-        //resume_thread();
-        return 0;
-    }
 
     int tag_array[REG_NUM];
     memset(tag_array, 0, sizeof(tag_array));
@@ -324,11 +287,9 @@ int cvm_dumping() {
     sleep(5);
     printf("test suspend end\n");
 #endif
-    
-    if(replica_flag == 2) { // in intravisor userspace
-        replica_flag = 0;
-    }
 
+    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    
 #if ANALYSE
     gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
@@ -338,20 +299,19 @@ int cvm_dumping() {
     global_capture_time += ((now - then) / 1000.0);
 #endif
 
-    //ctx.kernel_debug = 1;
-    //printf("start resume!!!\n");
-    get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
+    pthread_mutex_unlock(&snapshot_mtx);
 
-    if(seq_num > 500) {
-        printf("seq_num > 500, snapshot crash!\n");
-        exit(-1);
-    }
-    //printf("finish resume!!!\n");
-    //resume_thread();
     return 0;
 }
 
-
+void print_snapshot_statistics() {
+    pthread_mutex_lock(&snapshot_mtx);
+    printf("seq_num: %d\n", seq_num);
+    printf("capture count: %d\n", global_capture_count);
+    printf("capture time: %lfs\n", global_capture_time);
+    printf("average capture time: %lfs\n", global_capture_time/global_capture_count);
+    pthread_mutex_unlock(&snapshot_mtx);
+}
 
 
 

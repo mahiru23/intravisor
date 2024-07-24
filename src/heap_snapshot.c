@@ -67,6 +67,7 @@ void backup_heap_init() {
 
 static struct page * heap_page_add_update(void *addr, const char *cap_tags) {
     struct page *s;
+
     HASH_FIND_PTR(heap, &addr, s);
 
     if (s == NULL) {
@@ -222,7 +223,7 @@ static int memory_page_update(void *addr, unsigned long size, char *dirty_page_m
                 global_heap_dirty_page_num++;
             }
         }
-#if DEBUG
+#if 1
         printf("save heap_dirty_page_packet\n");
 #endif
 #endif
