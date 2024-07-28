@@ -4,6 +4,8 @@
 int seq_num = 0; // snapshot counter to analyse perf, != global_capture_count, count all epoch
 int global_capture_count = 0; // only count suspend
 double global_capture_time = 0;
+double max_suspend_time = 0;
+double min_suspend_time = 10000;
 pthread_mutex_t snapshot_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 /*TODO: this part should rewrite?*/
@@ -182,12 +184,13 @@ int cvm_dumping() {
 #elif
         heartbeat(-1);
 #endif
+
+#if DEBUG
         printf("not suspend\n");
         printf("ctx.suspend_flag = %d\n", ctx.suspend_flag);
         printf("seq_num = %d\n", seq_num);
-
+#endif
         pthread_mutex_unlock(&snapshot_mtx);
-
         return 0;
     }
 
@@ -294,9 +297,11 @@ int cvm_dumping() {
     gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    //printf("capture snapshot of %d in %f\n", cid, (now - then) / 1000.0);
+    double suspend_time = (now - then) / 1000.0;
     global_capture_count++;
-    global_capture_time += ((now - then) / 1000.0);
+    global_capture_time += suspend_time;
+    max_suspend_time = max(suspend_time, max_suspend_time);
+    min_suspend_time = min(suspend_time, min_suspend_time);
 #endif
 
     pthread_mutex_unlock(&snapshot_mtx);
@@ -310,6 +315,8 @@ void print_snapshot_statistics() {
     printf("capture count: %d\n", global_capture_count);
     printf("capture time: %lfs\n", global_capture_time);
     printf("average capture time: %lfs\n", global_capture_time/global_capture_count);
+    printf("max_suspend_time: %lf", max_suspend_time);
+    printf("min_suspend_time: %lf", min_suspend_time);
     pthread_mutex_unlock(&snapshot_mtx);
 }
 

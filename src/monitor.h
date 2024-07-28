@@ -502,7 +502,9 @@ int intravisor_pthread_create(pthread_t * thread, const pthread_attr_t * attr, v
 extern void *__capability global_sealcap;
 extern lwpid_t threadid;
 extern int global_cid;
-//extern int replica_flag;
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
 
 #define REG_NUM 33
 #define SUSPEND_THREAD -1
@@ -510,11 +512,6 @@ extern int global_cid;
 #define CAPTURE_SNAPSHOT -5
 #define SUSPEND_AND_CAPTURE -6
 int cvm_dumping();
-
-//extern bool stack_cap_tags[32768];
-/*extern pthread_mutex_t mutex;
-extern pthread_cond_t cond;
-extern int is_paused;*/
 
 /*identify state machine*/
 extern bool master_valid_flag;
@@ -526,8 +523,8 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 
 /*timeout*/
 /*TDDO: write config*/
-#define HEARTBEAT_TIMEOUT_SEC 10
-#define HEARTBEAT_TIMEOUT_USEC 0
+#define HEARTBEAT_TIMEOUT_SEC 0
+#define HEARTBEAT_TIMEOUT_USEC 50000
 
 #define DISCONNECTION_TIMEOUT_SEC 15
 #define DISCONNECTION_TIMEOUT_USEC 0
@@ -586,7 +583,6 @@ extern char *backup_stack_buffer;
 
 // 32768 now?
 #define STACK_CAP_LINE STACK_SIZE/(sizeof(uintcap_t *)*2)
-#define min(a, b) ((a) < (b) ? (a) : (b))
 
 // we use uthash to save heap page
 struct page {

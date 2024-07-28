@@ -378,12 +378,8 @@ void *init_thread(void *arg) {
 		capture_or_resume(resume_flag_x);
 
 		// keep thread state at RUNQ
-		int ix=0;
 		while(1) {
-			ix++;
-			if(ix>10000000){
-				ix=0;
-			}
+			;
 		}
 	}
 

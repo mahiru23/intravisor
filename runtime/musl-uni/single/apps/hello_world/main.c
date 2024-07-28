@@ -1,17 +1,4 @@
-/*#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <string.h>
-#include <errno.h>
 
-#include <sys/time.h>
-#include <signal.h>
-#include <pthread.h>
-
-
-#define _GNU_SOURCE
-#include <unistd.h>
-*/
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <stdio.h>
@@ -24,162 +11,176 @@
 
 #define MSG "hello world, just a hostcall test here \n"
 
-#define MSGX "congrats, file test success! \n"
-
-#define MSGZ "just a printf test hope it works!!!!! \n"
-
-#define MSGY "1"
+#define PAGE_SIZE 4096
 
 void *my_malloc(size_t size);
 void my_free(void *ptr);
 void *my_realloc(void *ptr, size_t size);
 
 
-
 #define SIZE 100000000
 
-double compute_flops() {
-    struct timeval start, end;
-    host_gettimeofday(&start, NULL);
 
-    for(int i=0;i<50;i++) {
-        double sum = 1.0 + 1000.0*(i);
-        for (int j = 0; j < SIZE; j++) {
-            sum += (j * 1.0) / (j + 1.0);
-        }
-        printf("compute_flops flag %d, sum :%lf\n", i, sum);
-    }
-
-    host_gettimeofday(&end, NULL);
-    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
-    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    printf("finish compute_flops test in %f\n",(now - then) / 1000.0);
-
-    return 0;
-}
-
-long long compute_iops() {
-
+double compute_iops_benchmark() {
     struct timeval start, end;
     host_gettimeofday(&start, NULL);
 
     long long sum = 0;
-    for (int i = 0; i < SIZE; i++) {
-        sum += i % (i + 1);
-        if(i%(SIZE/10)==0) {
-            printf("compute_flops flag %d, sum :%ld\n", i, sum);
+    for(int i=0;i<50000;i++) {
+        for (int i = 0; i < SIZE; i++) {
+            sum += i % (i + 1);
         }
-    }    
+        sum = sum/100007+i;
+    }
+    printf("compute_iops_benchmark sum: %ld\n", sum);
 
     host_gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    printf("finish compute_iops test in %f\n",(now - then) / 1000.0);
 
-    return sum;
+    double res = (now - then) / 1000.0;
+    printf("compute_iops_benchmark: in %lf\n", res);
+    return res;
 }
 
-void app_main() {
-    printf("hello world here! \n ");
 
-    char *buffer = (char *)my_malloc(100);
-    if(buffer == NULL) {
-        printf("test");
+double compute_flops_benchmark() {
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
+
+    double sum = 1000.0;
+    for(int i=0;i<50;i++) {
+        for (int j = 0; j < SIZE; j++) {
+            sum += (j * 1.0) / (j + 1.0);
+        }
+        sum = sum/100007+i;
     }
-    memcpy(buffer, MSGX, strlen(MSGX));
-    printf("buffer: %s\n", buffer);
-    printf("buffer address: %p\n", buffer);
+    printf("compute_flops_benchmark sum: %lf\n", sum);
 
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
 
-	char buf[32];
-	char cap[16];		//place to store the capability
-	long size;
+    double res = (now - then) / 1000.0;
+    printf("compute_flops_benchmark: in %lf\n", res);
+    return res;
+}
 
-	//host_cap_prb("test1", cap, &size);
-	//copy_from_cap(buf, cap, 32);
+// Test the performance of capturing & saving lots of dirty pages
+double dirty_page_benchmark(int avg_page_num) {
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
 
-	//host_write_out(buf, 32);
-    /*c_out_3(406, buf, cap, 32);
+    /*--------------------------------*/
+    char *temp_buffer = (char *)my_malloc(avg_page_num * PAGE_SIZE);
+    if(temp_buffer == NULL) {
+        printf("my_malloc error\n");
+    }
 
-    c_out_3(1, buf, (long)(32), 0);*/
+    int seq_size = (64.0*10000000)/avg_page_num;
 
+    for(int seq=0;seq<seq_size;seq++) {
+        for(int i=0;i<avg_page_num;i++) {
+            temp_buffer[i*PAGE_SIZE + ((i+seq)%PAGE_SIZE)] = (char)(i%128);
+        }
+    }
 
-    //c_out_3(1, MSG, (long)sizeof(MSG), 0);
-    //c_out_3(1, MSG, (long)sizeof(MSG), 0);
+    my_free(temp_buffer);
+    /*--------------------------------*/
 
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+
+    double res = (now - then) / 1000.0;
+    printf("dirty_page_benchmark: avg_page_num: %d, in %lf\n", avg_page_num, res);
+    return res;
+}
+
+double disk_benchmark() {
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
+
+    /*--------------------------------*/
     int fd = host_open("testfile", 0, 0666);
     if (fd == -1) {
         printf("open error\n");
-        return;
+        return 0;
     }
 
-    compute_flops();
-    //compute_iops();
+    int len = 1024;
+    char *write_buffer = (char *)my_malloc(len);
+    if(write_buffer == NULL) {
+        printf("my_malloc error\n");
+    }
+
+    for(int i=0;i<100;i++) {
+        for (int j = 0; j < len; j++) {
+            write_buffer[i] = ('0'+i%10);
+        }
+
+        for (int j = 0; j < 100000; j++) {
+            if (host_write(fd, write_buffer, len) == -1) {
+                printf("write error\n");
+                return 0;
+            }
+        }
+
+        int current_pos = host_lseek(fd, 0, SEEK_CUR);
+        if (current_pos == -1) {
+            perror("Failed to get current file position");
+            return 0;
+        }
+        struct stat st;
+        if (host_fstat(fd, &st) != 0) {
+            perror("Failed to get file status");
+            close(fd);
+            return 0;
+        }
+        if(!(st.st_size == len*100000 && current_pos == len*100000)) {
+            printf("st.st_size: %d, current_pos: %d\n", st.st_size, current_pos);
+            return 0;
+        }
+        if (host_lseek(fd, 0, SEEK_SET) == -1) {
+            perror("host_lseek set error");
+            return 0;
+        }
+    }
+
+
+    close(fd);
+
+    /*--------------------------------*/
+
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+
+    double res = (now - then) / 1000.0;
+    printf("disk_benchmark: in %lf\n", res);
+    return res;
+}
+
+
+void app_main() {
+    printf("start benchmark test! \n ");
 
     struct timeval start, end;
     host_gettimeofday(&start, NULL);
 
-	int i = 0;
-    int acc = 0;
-    /*while(i<18000) {
-		i++;
-		
-        //sleep(1);
-        
-		if(i%1000 == 0) {
-            printf(" times: %d \n ", i);
-            sleep(1);
-            acc += 1;
-            if (host_write(fd, MSGY, 1) == -1) {
-                printf("write error MSGY\n");
-                return;
-            }
-		}
-    }*/
+    /*--------------------------------------------*/
+    compute_flops_benchmark();
+    compute_iops_benchmark();
+    for(int i=1;i<=1024;i*=2) {
+        dirty_page_benchmark(i);
+    }
+    disk_benchmark();
+    /*--------------------------------------------*/
 
     host_gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    printf("finish test runtime in %f\n",(now - then) / 1000.0);
-
-    printf("another buffer: %s", buffer);
-    printf("another buffer address: %p\n", buffer);
-
-
-    /*if (host_write(fd, MSGX, (long)sizeof(MSGX)) == -1) {
-        printf("write error 3\n");
-        return;
-    }*/
-
-
-    struct stat st;
-    if (host_fstat(fd, &st) != 0) {
-        perror("Failed to get file status");
-        close(fd);
-        return;
-    }
-    int current_pos = host_lseek(fd, 0, SEEK_CUR);
-    if (current_pos == -1) {
-        perror("Failed to get current file position");
-        return;
-    }
-    
-    // fd test
-    if(st.st_size == acc && current_pos == acc) {
-        printf("fd test success!\n");
-    }
-    else {
-        printf("st.st_size: %d, current_pos: %d, acc: %d\n", st.st_size, current_pos, acc);
-    }
-
-    close(fd);
-
-    c_out_3(1, MSG, (long)sizeof(MSG), 0);
-    printf("out success! \n ");
-
-    //host_exit(0);
+    printf("benchmark finish time: %lf s\n",(now - then) / 1000.0);
 
     return ;
-
-
 }
