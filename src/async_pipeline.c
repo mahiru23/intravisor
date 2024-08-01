@@ -6,6 +6,12 @@ int full_copy_flag = 0;
 queue master_event_queue; 
 queue backup_event_queue;
 
+int global_transmit_count = 0;
+double global_transmit_time = 0.0;
+double max_transmit_time = 0.0;
+double min_transmit_time = 10000.0;
+pthread_mutex_t transmit_mtx = PTHREAD_MUTEX_INITIALIZER;
+
 // single thread
 void async_pipeline_master_init() {
 	int ret = -1;
@@ -73,8 +79,13 @@ void async_pipeline_master_impl() {
                 // heartbeat & file/socket ops & checkpoint
                 int flag = 0;
                 while(get_size(que) != 0) {
+#if ANALYSE
+    pthread_mutex_lock(&transmit_mtx);
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+#endif
                     node *n = que->top;
-                    printf("send n->type: %d\n", n->type);
+                    //printf("send n->type: %d\n", n->type);
                     if(send_all(global_socket, n, sizeof(node)) == -1) {
                         flag = 1;
                         printf("async_pipeline_master_impl: send node error\n");
@@ -91,6 +102,20 @@ void async_pipeline_master_impl() {
                     }
                     n = pop_front(que);
                     free(n);
+#if ANALYSE
+
+    usleep(10000); // simulate 10ms latency
+
+    gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    double transmit_time = (now - then) / 1000.0;
+    global_transmit_count++;
+    global_transmit_time += transmit_time;
+    max_transmit_time = max(transmit_time, max_transmit_time);
+    min_transmit_time = min(transmit_time, min_transmit_time);
+    pthread_mutex_unlock(&transmit_mtx);
+#endif
                 }
                 if(flag == 1) {
                     break;
@@ -402,8 +427,10 @@ int save_snapshot_to_disk(char *packet) {
     save_heap_dirty_page_to_disk(packet+pos, packet_index.heap_dirty_page_packet_len);
 #endif
 
+    
+#if DEBUG
     printf("save_snapshot_to_disk, over\n");
-
+#endif
     return 0;
 }
 
@@ -462,7 +489,11 @@ int save_snapshot_to_memory(char *packet) {
     save_heap_dirty_page_to_memory(packet+pos, packet_index.heap_dirty_page_packet_len);
 #endif
 
+
+#if DEBUG
     printf("save_snapshot_to_memory, over\n");
+#endif
+    
 
     return 0;
 }

@@ -77,9 +77,9 @@ double dirty_page_benchmark(int avg_page_num) {
         printf("my_malloc error\n");
     }
 
-    int seq_size = (64.0*10000000)/avg_page_num;
+    long long seq_size = (64.0*10000000)/avg_page_num;
 
-    for(int seq=0;seq<seq_size;seq++) {
+    for(long long seq=0;seq<seq_size;seq++) {
         for(int i=0;i<avg_page_num;i++) {
             temp_buffer[i*PAGE_SIZE + ((i+seq)%PAGE_SIZE)] = (char)(i%128);
         }
@@ -169,12 +169,13 @@ void app_main() {
     host_gettimeofday(&start, NULL);
 
     /*--------------------------------------------*/
-    compute_flops_benchmark();
-    compute_iops_benchmark();
+    //compute_flops_benchmark();
+    //compute_iops_benchmark();
     for(int i=1;i<=1024;i*=2) {
         dirty_page_benchmark(i);
+        c_out_3(31, i, 0, 0);
     }
-    disk_benchmark();
+    //disk_benchmark();
     /*--------------------------------------------*/
 
     host_gettimeofday(&end, NULL);

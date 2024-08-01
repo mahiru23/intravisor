@@ -360,15 +360,18 @@ int send_all(int sock, void *buf, int size) {
         }
 
         if (bytes_sent < 0) {
-            perror("Send failed");
 			if (errno == EWOULDBLOCK || errno == EAGAIN) {
-				printf("send-Q/recv-Q is full, waiting for peer\n");
+			#if DEBUG
+				printf("send-Q is full, waiting for peer\n");
+			#endif
+				usleep(5000); // 5ms pause
 				continue;
 			}
 			else if (errno == EINTR) {
 				continue;
 			}
 			else {
+				perror("Send failed");
 				return -1;
 			}
 			usleep(1); // reduce CPU usage
@@ -391,15 +394,18 @@ int recv_all(int sock, void *buf, int size) {
             return -1;
         }
         if (bytes_recv < 0) {
-			perror("recv failed");
 			if (errno == EWOULDBLOCK || errno == EAGAIN) {
-				printf("send-Q/recv-Q is empty, waiting for peer\n");
+			#if DEBUG
+				printf("recv-Q is empty, waiting for peer\n");
+			#endif
+				usleep(5000); // 5ms pause
 				continue;
 			}
 			else if (errno == EINTR) {
 				continue;
 			}
 			else {
+				perror("Recv failed");
 				return -1;
 			}
 			usleep(1); // reduce CPU usage

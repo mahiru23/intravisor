@@ -532,7 +532,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 #define QUEUE_TIMEOUT_SEC 1
 #define QUEUE_TIMEOUT_USEC 0
 
-#define QUEUE_EMPTY_TIMEOUT_USEC 100000
+#define QUEUE_EMPTY_TIMEOUT_USEC 50000
 
 #define PAGE_NUM STACK_SIZE/PAGE_SIZE
 extern char dirty_page_map[PAGE_NUM];
@@ -602,7 +602,7 @@ extern int global_heap_dirty_page_num;
 #define SNAPSHOT 1
 #define HEAP_SNAPSHOT 1
 #define SMALL_HEAP 1
-#define SMALL_HEAP_SIZE 4097
+#define SMALL_HEAP_SIZE 1026
 #define DEBUG 0
 #define ANALYSE 1
 #define ASYNC_PIPELINE 1
@@ -610,8 +610,20 @@ extern int global_heap_dirty_page_num;
 #define RANDOM_CRASH_TIMEOUT_SEC 1
 
 // analyse
-extern pthread_mutex_t snapshot_mtx;
+
 extern int seq_num;
 extern int global_capture_count;
 extern double global_capture_time;
+extern double max_suspend_time;
+extern double min_suspend_time;
+extern pthread_mutex_t snapshot_mtx;
+
+extern int global_transmit_count;
+extern double global_transmit_time;
+extern double max_transmit_time;
+extern double min_transmit_time;
+extern pthread_mutex_t transmit_mtx;
+
+
+extern int heartbeat_interval;
 

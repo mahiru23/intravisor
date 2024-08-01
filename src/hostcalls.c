@@ -421,6 +421,14 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 #endif
 		break;
 
+	case 31:
+		// only for test
+		printf("\ntest dirty page num: %ld\n", a0);
+		print_snapshot_statistics();
+		clear_snapshot_statistics();
+		print_transmit_statistics();
+		clear_transmit_statistics();
+		break;
 
 	case 34:
 		printf("here is 34 hostcall\n");

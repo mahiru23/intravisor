@@ -8,6 +8,7 @@
 #include <sys/snapshot.h>
 
 void *__capability global_sealcap;
+int heartbeat_interval = -1;
 
 void print_stack_info() {
     pthread_t self = pthread_self();
@@ -39,10 +40,10 @@ void thread_get_context(void *argv) {
     }
 
     struct itimerval timer;
-    timer.it_value.tv_sec = 1;
+    timer.it_value.tv_sec = 3;
     timer.it_value.tv_usec = 0;
     timer.it_interval.tv_sec = HEARTBEAT_TIMEOUT_SEC;
-    timer.it_interval.tv_usec = HEARTBEAT_TIMEOUT_USEC;
+    timer.it_interval.tv_usec = (heartbeat_interval == -1 ? HEARTBEAT_TIMEOUT_USEC : heartbeat_interval);
     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
         perror("setitimer");
         return ;

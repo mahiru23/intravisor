@@ -191,7 +191,7 @@ static int memory_page_update(void *addr, unsigned long size, char *dirty_page_m
         if (dirty_page_map[i] & MINCORE_MODIFIED) {
             heap_get_cap_info(heap_no_to_addr(i, addr), PAGE_SIZE);
             struct page *s = heap_page_add_update(heap_no_to_addr(i, addr), heap_cap_tags);
-            write_to_heapfile(global_heap_fd, s, i);
+            //write_to_heapfile(global_heap_fd, s, i);
             dirty_page_num++;
         #if DEBUG
             if(dirty_page_num%1000 == 0) {
@@ -223,7 +223,7 @@ static int memory_page_update(void *addr, unsigned long size, char *dirty_page_m
                 global_heap_dirty_page_num++;
             }
         }
-#if 1
+#if DEBUG
         printf("save heap_dirty_page_packet\n");
 #endif
 #endif
@@ -258,7 +258,7 @@ void save_heap_dirty_page_to_disk(void *addr, unsigned long size) {
 // for backup
 void save_heap_dirty_page_to_memory(void *addr, unsigned long size) {
 
-    printf("heap packet size: 0X%lx\n\n\n\n\n", size);
+    //printf("heap packet size: 0X%lx\n\n\n\n\n", size);
 
     int packet_page_num = size / sizeof(struct page);
     for(int i=0; i<packet_page_num; i++) {

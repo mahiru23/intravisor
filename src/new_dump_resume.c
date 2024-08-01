@@ -309,20 +309,49 @@ int cvm_dumping() {
     return 0;
 }
 
+void clear_snapshot_statistics() {
+    pthread_mutex_lock(&snapshot_mtx);
+    seq_num = 0;
+    global_capture_count = 0;
+    global_capture_time = 0.0;
+    max_suspend_time = 0.0;
+    min_suspend_time = 10000.0;
+    pthread_mutex_unlock(&snapshot_mtx);
+}
+
 void print_snapshot_statistics() {
     pthread_mutex_lock(&snapshot_mtx);
+    printf("----------------------------\n");
     printf("seq_num: %d\n", seq_num);
     printf("capture count: %d\n", global_capture_count);
     printf("capture time: %lfs\n", global_capture_time);
     printf("average capture time: %lfs\n", global_capture_time/global_capture_count);
-    printf("max_suspend_time: %lf", max_suspend_time);
-    printf("min_suspend_time: %lf", min_suspend_time);
+    printf("max_suspend_time: %lf\n", max_suspend_time);
+    printf("min_suspend_time: %lf\n", min_suspend_time);
+    printf("----------------------------\n\n");
     pthread_mutex_unlock(&snapshot_mtx);
 }
 
+void clear_transmit_statistics() {
+    pthread_mutex_lock(&transmit_mtx);
+    global_transmit_count = 0;
+    global_transmit_time = 0.0;
+    max_transmit_time = 0.0;
+    min_transmit_time = 10000.0;
+    pthread_mutex_unlock(&transmit_mtx);
+}
 
-
-
+void print_transmit_statistics() {
+    pthread_mutex_lock(&transmit_mtx);
+    printf("----------------------------\n");
+    printf("global_transmit_count: %d\n", global_transmit_count);
+    printf("global_transmit_time: %lfs\n", global_transmit_time);
+    printf("average transmit time: %lfs\n", global_transmit_time/global_transmit_count);
+    printf("max_transmit_time: %lf\n", max_transmit_time);
+    printf("min_transmit_time: %lf\n", min_transmit_time);
+    printf("----------------------------\n\n");
+    pthread_mutex_unlock(&transmit_mtx);
+}
 
 
 

@@ -381,7 +381,7 @@ int backup_server() {
 #elif
         ret = backup_server_impl();
 #endif
-        printf("backup_server_impl loop, ret: %d\n", ret);
+        //printf("backup_server_impl loop, ret: %d\n", ret);
         if(ret == -1) {
             printf("master crashed, backup -> master\n");
             backup_failure_handler();
