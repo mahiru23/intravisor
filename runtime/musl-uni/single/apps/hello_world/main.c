@@ -26,9 +26,10 @@ double compute_iops_benchmark() {
     host_gettimeofday(&start, NULL);
 
     long long sum = 0;
-    for(int i=0;i<50000;i++) {
-        for (int i = 0; i < SIZE; i++) {
-            sum += i % (i + 1);
+    for(int i=0;i<300;i++) {
+        for (int j = 0; j < SIZE; j++) {
+            sum += j;
+            sum %= SIZE;
         }
         sum = sum/100007+i;
     }
@@ -114,7 +115,7 @@ double disk_benchmark() {
         printf("my_malloc error\n");
     }
 
-    for(int i=0;i<100;i++) {
+    for(int i=0;i<3;i++) {
         for (int j = 0; j < len; j++) {
             write_buffer[i] = ('0'+i%10);
         }
@@ -169,13 +170,16 @@ void app_main() {
     host_gettimeofday(&start, NULL);
 
     /*--------------------------------------------*/
-    //compute_flops_benchmark();
-    //compute_iops_benchmark();
-    for(int i=1;i<=1024;i*=2) {
+    compute_flops_benchmark();
+    c_out_3(31, 0, 0, 0);
+    compute_iops_benchmark();
+    c_out_3(31, 1, 0, 0);
+    /*for(int i=1;i<=1024;i*=2) {
         dirty_page_benchmark(i);
         c_out_3(31, i, 0, 0);
-    }
-    //disk_benchmark();
+    }*/
+    disk_benchmark();
+    c_out_3(31, 2, 0, 0);
     /*--------------------------------------------*/
 
     host_gettimeofday(&end, NULL);

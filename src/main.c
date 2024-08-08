@@ -1014,7 +1014,7 @@ int main(int argc, char *argv[]) {
 			skip_argc += 2;
 			char *intreval_str = *++argv;
 			heartbeat_interval = atoi(intreval_str);
-			if(heartbeat_interval <= 10000 || heartbeat_interval >= 1000000) {
+			if(heartbeat_interval < 10000 || heartbeat_interval > 1000000) {
 				printf("error heartbeat_interval: %d\n", heartbeat_interval);
 				while(1){
 					sleep(1);
@@ -1023,7 +1023,19 @@ int main(int argc, char *argv[]) {
 			else {
 				printf("heartbeat_interval: %d\n", heartbeat_interval);
 			}
-
+		} else if(strcmp("--latency", *argv) == 0) {
+			skip_argc += 2;
+			char *latency_str = *++argv;
+			network_latency = atoi(latency_str);
+			if(network_latency < 0 || network_latency > 1000) {
+				printf("error network_latency: %d\n", network_latency);
+				while(1){
+					sleep(1);
+				}
+			}
+			else {
+				printf("network_latency: %d\n", network_latency);
+			}
 		} else if(strcmp("-n", *argv) == 0 || strcmp("--network", *argv) == 0) {
 			skip_argc += 1;
 			//test_network_client();

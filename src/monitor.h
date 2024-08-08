@@ -562,7 +562,7 @@ void async_pipeline_master_impl();
 // packet type
 // -1 heartbeat, 1 snapshot, 2 file_ops, 3 socket_ops
 #define HEARTBEAT -1
-#define SNAPSHOT 1
+#define CHECKPOINT 1
 #define FILE_OPS 2
 #define SOCKET_OPS 3
 #define KILL_BACKUP 4
@@ -595,6 +595,7 @@ struct page {
 extern char *heap_dirty_page_packet;
 extern int global_heap_dirty_page_num;
 
+extern int heartbeat_interval;
 
 // test config (rewrite in config)
 // very poor performance with large heap (here is about 1G)
@@ -625,5 +626,7 @@ extern double min_transmit_time;
 extern pthread_mutex_t transmit_mtx;
 
 
-extern int heartbeat_interval;
+extern double suspend_time_array[2000];
+extern double transmit_time_array[2000];
 
+extern int network_latency;

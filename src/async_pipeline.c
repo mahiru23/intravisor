@@ -12,6 +12,11 @@ double max_transmit_time = 0.0;
 double min_transmit_time = 10000.0;
 pthread_mutex_t transmit_mtx = PTHREAD_MUTEX_INITIALIZER;
 
+double suspend_time_array[2000];
+double transmit_time_array[2000];
+
+int network_latency = 0;
+
 // single thread
 void async_pipeline_master_init() {
 	int ret = -1;
@@ -83,6 +88,7 @@ void async_pipeline_master_impl() {
     pthread_mutex_lock(&transmit_mtx);
     struct timeval start, end;
     gettimeofday(&start, NULL);
+    int node_type = que->top->type;
 #endif
                     node *n = que->top;
                     //printf("send n->type: %d\n", n->type);
@@ -103,17 +109,29 @@ void async_pipeline_master_impl() {
                     n = pop_front(que);
                     free(n);
 #if ANALYSE
+    if(node_type == CHECKPOINT || node_type == FILE_OPS) {
+        if(network_latency != 0) {
+            while(1) {
+                usleep(network_latency*1000); // simulate 10ms latency
+                int loss_base = 10000/network_latency; // 100 ms = 1% loss rate
+                int temp = rand()%loss_base;
+                if(temp != 0) { 
+                    break;
+                }
+            }
+        }
 
-    usleep(10000); // simulate 10ms latency
-
-    gettimeofday(&end, NULL);
-    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
-    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
-    double transmit_time = (now - then) / 1000.0;
-    global_transmit_count++;
-    global_transmit_time += transmit_time;
-    max_transmit_time = max(transmit_time, max_transmit_time);
-    min_transmit_time = min(transmit_time, min_transmit_time);
+        gettimeofday(&end, NULL);
+        unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+        unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+        double transmit_time = (now - then) / 1000.0;
+        if(global_transmit_count<2000)
+            transmit_time_array[global_transmit_count] = transmit_time;
+        global_transmit_count++;
+        global_transmit_time += transmit_time;
+        max_transmit_time = max(transmit_time, max_transmit_time);
+        min_transmit_time = min(transmit_time, min_transmit_time);
+    }
     pthread_mutex_unlock(&transmit_mtx);
 #endif
                 }
@@ -321,7 +339,7 @@ int async_master_to_backup(struct c_thread *ct, int dirty_page_num, int valid_ca
         exit(EXIT_FAILURE);
     }
     n->id = master_checkpoint;
-    n->type = SNAPSHOT;
+    n->type = CHECKPOINT;
     n->len = len;
     n->payload = packet;
     master_checkpoint++;
@@ -531,7 +549,7 @@ int async_backup_server_impl() {
         }
         return 0;
     }
-    else if(n->type == SNAPSHOT) { // checkpoint
+    else if(n->type == CHECKPOINT) { // checkpoint
         int snapshot_size = n->len;
         char *packet = (char *)malloc(snapshot_size);
         if (packet == NULL) {

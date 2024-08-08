@@ -298,6 +298,8 @@ int cvm_dumping() {
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
     unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
     double suspend_time = (now - then) / 1000.0;
+    if(global_capture_count<2000)
+        suspend_time_array[global_capture_count] = suspend_time;
     global_capture_count++;
     global_capture_time += suspend_time;
     max_suspend_time = max(suspend_time, max_suspend_time);
@@ -328,6 +330,12 @@ void print_snapshot_statistics() {
     printf("average capture time: %lfs\n", global_capture_time/global_capture_count);
     printf("max_suspend_time: %lf\n", max_suspend_time);
     printf("min_suspend_time: %lf\n", min_suspend_time);
+
+    double lower, upper;
+    confidence_interval(suspend_time_array, min(global_capture_count, 2000), &lower, &upper);
+    printf("lower boundary: %lf\n", lower);
+    printf("upper boundary: %lf\n", upper);
+
     printf("----------------------------\n\n");
     pthread_mutex_unlock(&snapshot_mtx);
 }
@@ -349,6 +357,12 @@ void print_transmit_statistics() {
     printf("average transmit time: %lfs\n", global_transmit_time/global_transmit_count);
     printf("max_transmit_time: %lf\n", max_transmit_time);
     printf("min_transmit_time: %lf\n", min_transmit_time);
+
+    double lower, upper;
+    confidence_interval(transmit_time_array, min(global_transmit_count, 2000), &lower, &upper);
+    printf("lower boundary: %lf\n", lower);
+    printf("upper boundary: %lf\n", upper);
+
     printf("----------------------------\n\n");
     pthread_mutex_unlock(&transmit_mtx);
 }

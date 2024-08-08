@@ -27,6 +27,12 @@ void init_fd_store() {
     }
 }
 
+void print_open_fd_list() {
+    for(int i=0; i<MAX_FD_NUMS; i++) {
+        printf("%d, %d, %s, %d, %d\n", open_fd_list[i].fd, open_fd_list[i].offset, open_fd_list[i].pathname, open_fd_list[i].flags, open_fd_list[i].mode);
+    }
+}
+
 void clear_fd_list() {
     pthread_mutex_lock(&fd_store_lock);
     for(int i=0; i<MAX_FD_NUMS; i++) {
@@ -88,7 +94,9 @@ void update_offset() {
         if(open_fd_list[i].fd != -1) {
             off_t current_pos = lseek(open_fd_list[i].fd, 0, SEEK_CUR);
             if (current_pos == -1) {
-                perror("Failed to get current file position");
+                printf("Failed to get current file position, open_fd_list[i].fd: %d\n", open_fd_list[i].fd);
+                print_open_fd_list();
+                perror("update_offset error");
                 exit(-1);
             }
             open_fd_list[i].offset = current_pos;

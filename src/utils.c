@@ -604,3 +604,45 @@ void resume_thread() {
 }*/
 
 
+
+/*analyze*/
+
+double mean(const double data[], int n) {
+    double sum = 0.0;
+    for (int i = 0; i < n; i++) {
+        sum += data[i];
+    }
+    return sum / n;
+}
+
+double standard_deviation(const double data[], int n) {
+    double mu = mean(data, n);
+    double sum_sq_diff = 0.0;
+    for (int i = 0; i < n; i++) {
+        double diff = data[i] - mu;
+        sum_sq_diff += diff * diff;
+    }
+    return sqrt(sum_sq_diff / (n - 1));
+}
+
+double standard_error(const double data[], int n) {
+    double sd = standard_deviation(data, n);
+    return sd / sqrt(n);
+}
+
+// 95% confidence interval
+void confidence_interval(const double data[], int n, double *lower, double *upper) {
+    double se = standard_error(data, n);
+    double mu = mean(data, n);
+    double z = 1.96;
+    *lower = mu - z * se;
+    *upper = mu + z * se;
+}
+
+
+
+
+
+
+
+

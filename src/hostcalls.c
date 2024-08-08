@@ -567,7 +567,9 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 #if SNAPSHOT
 		if(is_master & backup_valid_flag) {
 			kill_backup();
-			sleep(2);
+			if(get_size(&master_event_queue) != 0) {
+				sleep(2);
+			}
 		}
 	#if ANALYSE
 		print_snapshot_statistics();
@@ -810,7 +812,7 @@ __intcap_t hostcall(long a0, long a1, long a2, long a3, long a4, long a5, long a
 				return -1;
 			}
 			current_pos -= a2;
-			printf("sender comp_to_mon(a1, ct->sbox): %s\n\n\n\n", comp_to_mon(a1, ct->sbox));
+			//printf("sender comp_to_mon(a1, ct->sbox): %s\n\n\n\n", comp_to_mon(a1, ct->sbox));
 			send_to_backup_op(810, a0, comp_to_mon(a1, ct->sbox), a2, current_pos);
 		}
 #endif
