@@ -306,7 +306,9 @@ void resume_heap_from_memory() {
     for(s=heap; s != NULL; s=s->hh.next) {
         memcpy(s->addr, s->content, PAGE_SIZE);
         set_cap_tags_map_info(s->addr, s->cap_tags, sizeof(s->cap_tags));
+#if DEBUG
         printf("s->addr: %p, page_no: %d\n", s->addr, heap_addr_to_no(s->addr, heap_addr));
+#endif
     }
     printf("resume_heap finish\n");
 }

@@ -162,6 +162,109 @@ double disk_benchmark() {
     return res;
 }
 
+/*----------------------------------------------*/
+/*benchmark: convolution & pooling*/
+
+
+
+#define INPUT_SIZE 64
+#define FILTER_SIZE 3
+#define POOL_SIZE 2
+#define NUM_ITERATIONS 200000
+
+// Function to perform 2D convolution
+void conv2d(float input[INPUT_SIZE][INPUT_SIZE], float filter[FILTER_SIZE][FILTER_SIZE], float output[INPUT_SIZE - FILTER_SIZE + 1][INPUT_SIZE - FILTER_SIZE + 1]) {
+    for (int i = 0; i < INPUT_SIZE - FILTER_SIZE + 1; i++) {
+        for (int j = 0; j < INPUT_SIZE - FILTER_SIZE + 1; j++) {
+            float sum = 0.0;
+            for (int k = 0; k < FILTER_SIZE; k++) {
+                for (int l = 0; l < FILTER_SIZE; l++) {
+                    sum += input[i + k][j + l] * filter[k][l];
+                }
+            }
+            output[i][j] = sum;
+        }
+    }
+}
+
+// Function to perform 2D max pooling
+void maxpool2d(float input[INPUT_SIZE - FILTER_SIZE + 1][INPUT_SIZE - FILTER_SIZE + 1], float output[(INPUT_SIZE - FILTER_SIZE + 1) / POOL_SIZE][(INPUT_SIZE - FILTER_SIZE + 1) / POOL_SIZE]) {
+    for (int i = 0; i < (INPUT_SIZE - FILTER_SIZE + 1) / POOL_SIZE; i++) {
+        for (int j = 0; j < (INPUT_SIZE - FILTER_SIZE + 1) / POOL_SIZE; j++) {
+            float max = input[i * POOL_SIZE][j * POOL_SIZE];
+            for (int k = 0; k < POOL_SIZE; k++) {
+                for (int l = 0; l < POOL_SIZE; l++) {
+                    if (input[i * POOL_SIZE + k][j * POOL_SIZE + l] > max) {
+                        max = input[i * POOL_SIZE + k][j * POOL_SIZE + l];
+                    }
+                }
+            }
+            output[i][j] = max;
+        }
+    }
+}
+
+// Function to initialize a 2D array with random values
+void initialize_input(float input[INPUT_SIZE][INPUT_SIZE]) {
+    for (int i = 0; i < INPUT_SIZE; i++) {
+        for (int j = 0; j < INPUT_SIZE; j++) {
+            input[i][j] = rand() % 100 / 10.0;
+        }
+    }
+}
+
+// Function to initialize a filter with random values
+void initialize_filter(float filter[FILTER_SIZE][FILTER_SIZE]) {
+    for (int i = 0; i < FILTER_SIZE; i++) {
+        for (int j = 0; j < FILTER_SIZE; j++) {
+            filter[i][j] = rand() % 10 / 10.0;
+        }
+    }
+}
+// Function that was previously main
+void convolution_pooling_benchmark() {
+    float input[INPUT_SIZE][INPUT_SIZE];
+    float filter[FILTER_SIZE][FILTER_SIZE];
+    float conv_output[INPUT_SIZE - FILTER_SIZE + 1][INPUT_SIZE - FILTER_SIZE + 1];
+    float pool_output[(INPUT_SIZE - FILTER_SIZE + 1) / POOL_SIZE][(INPUT_SIZE - FILTER_SIZE + 1) / POOL_SIZE];
+
+    printf("start cond and pool benchmark \n");
+
+    // Initialize input and filter
+    initialize_input(input);
+    initialize_filter(filter);
+
+    // Measure the convolution time
+    struct timeval start, end;
+    host_gettimeofday(&start, NULL);
+
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+        conv2d(input, filter, conv_output);
+    }
+
+    host_gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    printf("conv2d benchmark finish time: %lf s\n",(now - then) / 1000.0);
+
+
+    // Measure the pooling time
+    host_gettimeofday(&start, NULL);
+
+    for (int i = 0; i < NUM_ITERATIONS * 5; i++) {
+        maxpool2d(conv_output, pool_output);
+    }
+
+    host_gettimeofday(&end, NULL);
+    now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    printf("maxpool2d benchmark finish time: %lf s\n",(now - then) / 1000.0);
+
+    printf("pool_output: %f\n", pool_output[0][0]);
+}
+
+/*----------------------------------------------*/
+
 
 void app_main() {
     printf("start benchmark test! \n ");
@@ -170,16 +273,23 @@ void app_main() {
     host_gettimeofday(&start, NULL);
 
     /*--------------------------------------------*/
-    compute_flops_benchmark();
+
+    //convolution_pooling_benchmark();
+    //c_out_3(31, 0, 0, 0);
+
+        dirty_page_benchmark(5000);
+        c_out_3(31, 0, 0, 0);
+
+    /*compute_flops_benchmark();
     c_out_3(31, 0, 0, 0);
     compute_iops_benchmark();
     c_out_3(31, 1, 0, 0);
-    /*for(int i=1;i<=1024;i*=2) {
+    for(int i=1;i<=1024;i*=2) {
         dirty_page_benchmark(i);
         c_out_3(31, i, 0, 0);
-    }*/
+    }
     disk_benchmark();
-    c_out_3(31, 2, 0, 0);
+    c_out_3(31, 2, 0, 0);*/
     /*--------------------------------------------*/
 
     host_gettimeofday(&end, NULL);

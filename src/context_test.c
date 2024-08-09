@@ -160,6 +160,9 @@ void thread_resume(int resume_flag) {
 #endif
     suspend_user_cVM();
 
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     int cid = global_cid;
     struct c_thread *ct = cvms[cid].threads;
     pid_t pid = getpid();
@@ -286,6 +289,13 @@ void thread_resume(int resume_flag) {
 
     set_cap_info(ct->stack, ct->stack_size);
     resume_from_snapshot(pid, threadid, cap_ptr); // syscall
+
+    gettimeofday(&end, NULL);
+    unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));
+    unsigned long then = (start.tv_sec * 1000ull) + (start.tv_usec / (1000ull));
+    double recovery_time = (now - then) / 1000.0;
+    printf("recovery_time: %lf\n\n", recovery_time);
+
     resume_user_cVM();
     printf("resume_from_snapshot over\n");
 }
