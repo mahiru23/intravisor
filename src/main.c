@@ -987,7 +987,8 @@ int main(int argc, char *argv[]) {
 			printf("\t-t --timer\tenable oneshot timer threads, default: %d\n", timers);
 			printf("\t--resume \tresume the cVM from dump file");
 			printf("\t-n --network\tnetwork test");
-			printf("\t-n --interval\tcheckpoint interval us");
+			printf("\t--interval\tcheckpoint interval /us");
+			printf("\t--latency\tset network latency and packet loss rate");
 			printf("\t-b --backup\tstart backup server");
 			exit(0);
 		} else if(strcmp("-y", *argv) == 0 || strcmp("--yaml", *argv) == 0) {

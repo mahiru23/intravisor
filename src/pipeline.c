@@ -460,4 +460,35 @@ int backup_server_impl() {
 }
 
 
+void mmap_file_test(struct c_thread *ct, int resume_flag) {
+    int fd;
+    char *addr;
+    int dirty_pages = 0;
+    unsigned long FILE_SIZE = ct->stack_size;
+    int pages = (FILE_SIZE) / PAGE_SIZE;
+
+    addr = mmap(ct->stack, ct->stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
+    if (addr == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("addr: %p\n", addr);
+    
+    if(resume_flag == 0) {
+        int fd2 = open("snapshot/stack_dump.bin", O_RDWR | O_CREAT | O_TRUNC, 0777);
+        if (fd2 == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (write(fd2, ct->stack, ct->stack_size) == -1) {
+            perror("ct->stack");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        printf("create file stack_dump.bin\n");
+        close(fd2);
+    }
+}
+
 
