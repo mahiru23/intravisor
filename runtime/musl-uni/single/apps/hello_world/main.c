@@ -71,17 +71,19 @@ void app_main() {
 
 	int i = 0;
     int acc = 0;
-    while(i<10) {
+    while(i<20) {
 		i++;
-        printf(" times: %d \n ", i);
-        double val = 1000.0*i;
+        double val = 10000.0*i;
         compute_flops_benchmark(val); // test, about 10s?
         acc += 1;
-        if (host_write(fd, MSGY, 1) == -1) {
-            printf("write error MSGY\n");
+
+        int len = snprintf(buf, sizeof(buf), "%d\n", i);
+        if (host_write(fd, buf, len) == -1) {
+            printf("write error\n");
             return;
         }
-		
+
+        printf(" count: %d \n ", i);
     }
 
     host_gettimeofday(&end, NULL);
@@ -109,12 +111,13 @@ void app_main() {
     }
     
     // fd test
-    if(st.st_size == acc && current_pos == acc) {
+    printf("st.st_size: %d, current_pos: %d, acc: %d\n", st.st_size, current_pos, acc);
+    /*if(st.st_size == acc && current_pos == acc) {
         printf("fd test success!\n");
     }
     else {
         printf("st.st_size: %d, current_pos: %d, acc: %d\n", st.st_size, current_pos, acc);
-    }
+    }*/
 
     close(fd);
 

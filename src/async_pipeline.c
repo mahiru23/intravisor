@@ -16,6 +16,7 @@ double suspend_time_array[2000];
 double transmit_time_array[2000];
 
 int network_latency = 0;
+int queue_capacity_threshold = 1000;
 
 // single thread
 void async_pipeline_master_init() {
@@ -62,8 +63,8 @@ void async_pipeline_master_impl() {
             continue;
         }
         else {
-            if(size > 1000) {
-                printf("master queue size > 1000, timeout is too long!\n");
+            if(size > queue_capacity_threshold) {
+                printf("master queue size > queue_capacity_threshold(%d), timeout is too long!\n", queue_capacity_threshold);
             }
             //select_ret = select(FD_SETSIZE, &readset, &writeset, 0, &tm);
             select_ret = select(FD_SETSIZE, 0, &writeset, 0, &tm);

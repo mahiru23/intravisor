@@ -645,7 +645,7 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 ////////////////////
 	struct c_thread *ct = cvms[cid].threads;
 
-#if (ANALYSE && HEAP_SNAPSHOT && SNAPSHOT && SMALL_HEAP)
+#if (HEAP_SNAPSHOT && SNAPSHOT && SMALL_HEAP)
 	cvms[cid].heap_size = SMALL_HEAP_SIZE * PAGE_SIZE;
 	printf("modify cvms[cid] heap page num = %d, only for test\n", SMALL_HEAP_SIZE);
 #endif
@@ -683,17 +683,9 @@ int build_cvm(int cid, struct cmp_s *comp, char *libos, char *disk, int argc, ch
 		while(1) ;
 	}
 
-
-	printf("ct[0].stack: %p\n", ct[0].stack);
-	printf("STACK_SIZE: %p\n", STACK_SIZE);
-
-
-	void* stackAddr;
+	/*void* stackAddr;
     size_t stackSize;
-    pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);
-    printf("\n\n\n\n?????????start Stack2 Address: %p\n", stackAddr);
-    printf("?????????????start Stack2 Size: %p\n\n\n\n", stackSize);
-
+    pthread_attr_getstack(&ct[0].tattr, &stackAddr, &stackSize);*/
 
 #ifdef __linux__
 //      int from = (cid - 2) * 2;
@@ -1015,8 +1007,8 @@ int main(int argc, char *argv[]) {
 			skip_argc += 2;
 			char *intreval_str = *++argv;
 			heartbeat_interval = atoi(intreval_str);
-			if(heartbeat_interval < 10000 || heartbeat_interval > 1000000) {
-				printf("error heartbeat_interval: %d\n", heartbeat_interval);
+			if(heartbeat_interval < 10000) {
+				printf("error heartbeat_interval: %d, valid: [10000:int_max]\n", heartbeat_interval);
 				while(1){
 					sleep(1);
 				}

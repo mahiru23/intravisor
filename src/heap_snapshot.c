@@ -191,7 +191,9 @@ static int memory_page_update(void *addr, unsigned long size, char *dirty_page_m
         if (dirty_page_map[i] & MINCORE_MODIFIED) {
             heap_get_cap_info(heap_no_to_addr(i, addr), PAGE_SIZE);
             struct page *s = heap_page_add_update(heap_no_to_addr(i, addr), heap_cap_tags);
-            //write_to_heapfile(global_heap_fd, s, i);
+        #if LOCAL_HEAP_STORE
+            write_to_heapfile(global_heap_fd, s, i);
+        #endif
             dirty_page_num++;
         #if DEBUG
             if(dirty_page_num%1000 == 0) {

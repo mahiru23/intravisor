@@ -42,8 +42,9 @@ void thread_get_context(void *argv) {
     struct itimerval timer;
     timer.it_value.tv_sec = 3;
     timer.it_value.tv_usec = 0;
-    timer.it_interval.tv_sec = HEARTBEAT_TIMEOUT_SEC;
-    timer.it_interval.tv_usec = (heartbeat_interval == -1 ? HEARTBEAT_TIMEOUT_USEC : heartbeat_interval);
+    printf("heartbeat_interval: %d\n", heartbeat_interval);
+    timer.it_interval.tv_sec = (heartbeat_interval == -1 ? HEARTBEAT_TIMEOUT_SEC : heartbeat_interval / 1000000);
+    timer.it_interval.tv_usec = (heartbeat_interval == -1 ? HEARTBEAT_TIMEOUT_USEC : heartbeat_interval % 1000000);
     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
         perror("setitimer");
         return ;

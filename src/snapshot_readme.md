@@ -29,6 +29,13 @@ The [CheriBSD](https://github.com/CTSRD-CHERI/cheribsd/tree/main) kernel version
 
 
 # Manual
+## compile 
+
+```
+make -C src/
+cp src/intravisor ~/cheri/output/intravisor
+```
+
 ## Install kernel patches
 
 ```
@@ -37,6 +44,7 @@ cd intravisor/src/extra_syscall/
 ./install.sh dirtycap/ $HOME/cheri/cheribsd/  
 cd cheribuild/  
 ./cheribuild.py run-riscv64-hybrid --enable-hybrid-targets -d  
+root  
 ```
 
 ## Start
@@ -60,6 +68,12 @@ sysctl -a | grep aslr
 ## Demo
 
 ```
+make -C runtime/musl-uni/single/
+make -C runtime/musl-uni/single/apps/hello_world -j 8
+make -C runtime/musl-uni/single/apps/hello_world install INSTALL_PATH=~/cheri/output/intravisor/
+```
+
+```
 cp -r /outputroot/intravisor /  
 cd /intravisor  
 mkdir /intravisor/backup/  
@@ -71,7 +85,10 @@ cp -r /intravisor/libhello_world.so /intravisor/backup/ ; cp -r /intravisor/musl
 ### Snapshot test
 
 ```
-./intravisor -y musl-uni-hello.yaml  
+cp -r /outputroot/intravisor/intravisor /intravisor/
+cp -r /outputroot/intravisor/libhello_world.so /intravisor/ ; cp -r /outputroot/intravisor/musl-uni-hello.yaml /intravisor/ ; cp -r /outputroot/intravisor/musl-uni-hello.ci /intravisor/
+
+./intravisor --interval 500000 -y musl-uni-hello.yaml  
 ./intravisor --resume musl-uni-hello.yaml  
 ```
 
@@ -94,6 +111,9 @@ make -C runtime/musl-uni/single/apps/benchmark -j 8
 make -C runtime/musl-uni/single/apps/benchmark install INSTALL_PATH=~/cheri/output/intravisor/  
 
 cp -r /outputroot/intravisor/libbenchmark.so /intravisor/ ; cp -r /outputroot/intravisor/benchmark.yaml /intravisor/ ; cp -r /outputroot/intravisor/benchmark.ci /intravisor/  
+
+cp -r /intravisor/libbenchmark.so /intravisor/backup/ ; cp -r /intravisor/benchmark.yaml /intravisor/backup/ ; cp -r /intravisor/benchmark.ci /intravisor/backup/  
+
 ```
 
 

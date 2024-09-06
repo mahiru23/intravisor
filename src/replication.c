@@ -141,19 +141,13 @@ int stack_dirty_page_update(struct c_thread *ct) {
     return dirty_page_num;
 }
 
-// replica_flag is a state machine here
-// TODO: but it seems not good, so disable suspend & resume syscall here
 int cvm_dumping() {
-
     pthread_mutex_lock(&snapshot_mtx);
 
     int cid = global_cid; // todo: arg?
     struct c_thread *ct = cvms[cid].threads;
     struct thread_snapshot ctx;
     ctx.kernel_debug = DEBUG;
-
-    //pause_thread();
-    //get_thread_snapshot(SUSPEND_THREAD, threadid, cap_ptr);
 
 #if ANALYSE
     struct timeval start, end;
@@ -179,11 +173,13 @@ int cvm_dumping() {
     }
     else { // not suspend
 
+        if(is_master & backup_valid_flag) {
 #if ASYNC_PIPELINE
-        async_heartbeat();
-#elif
-        heartbeat(-1);
+            async_heartbeat();
+#else
+            heartbeat(-1);
 #endif
+        }
 
 #if DEBUG
         printf("not suspend\n");
@@ -211,8 +207,6 @@ int cvm_dumping() {
     printf("lower_bound: %lx\n", lower_bound);
     printf("upper_bound: %lx\n", upper_bound);
 #endif
-
-
 
     int tag_array[REG_NUM];
     memset(tag_array, 0, sizeof(tag_array));
@@ -279,20 +273,13 @@ int cvm_dumping() {
     if(is_master & backup_valid_flag) {
 #if ASYNC_PIPELINE
         async_master_to_backup(ct, dirty_page_num, valid_cap_num);
-#elif
+#else
         master_to_backup(ct, dirty_page_num, valid_cap_num);
 #endif
     }
 
-#if DEBUG
-    //test suspend
-    printf("test suspend start\n");
-    sleep(5);
-    printf("test suspend end\n");
-#endif
-
     get_thread_snapshot(RESUEM_THREAD, threadid, cap_ptr);
-    
+
 #if ANALYSE
     gettimeofday(&end, NULL);
     unsigned long now = (end.tv_sec * 1000ull) + (end.tv_usec / (1000ull));

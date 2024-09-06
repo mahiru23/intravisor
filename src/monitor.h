@@ -524,7 +524,7 @@ extern bool is_master; // identifier, 1 MASTER, 0 BACKUP
 /*timeout*/
 /*TDDO: write config*/
 #define HEARTBEAT_TIMEOUT_SEC 0
-#define HEARTBEAT_TIMEOUT_USEC 50000
+#define HEARTBEAT_TIMEOUT_USEC 200000
 
 #define DISCONNECTION_TIMEOUT_SEC 15
 #define DISCONNECTION_TIMEOUT_USEC 0
@@ -602,10 +602,11 @@ extern int heartbeat_interval;
 // still have bugs, unstable, unpredictable crash in mincore or scheduler, default disable
 #define SNAPSHOT 1
 #define HEAP_SNAPSHOT 1
+#define LOCAL_HEAP_STORE 0
 #define SMALL_HEAP 1
 #define SMALL_HEAP_SIZE 1026
 #define DEBUG 0
-#define ANALYSE 1
+#define ANALYSE 0
 #define ASYNC_PIPELINE 1
 #define RANDOM_CRASH 0
 #define RANDOM_CRASH_TIMEOUT_SEC 1
